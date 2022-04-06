@@ -21,8 +21,7 @@ some may be redundant), and where there is a wrinkle to do with the way Lean
 represents things, it's noted.
 -/
 section gdtwo
-open polynomial matrix
-open_locale big_operators classical polynomial matrix
+
 -- 2.1 (Commutative rings)
 /-
 Provided by the comm_ring structure. Note that there is a theory of semirings,
@@ -133,7 +132,7 @@ Polynomials over a ring R are really just finitely-supported maps from R to
 ℕ, along with the structure that retains the structure of R for addition and
 scalar multiplication and defines products using convolution. This is an
 additive monoid algebra, and so secretly this is just what a polynomial is
-in Lean. However, data.polynomial.basic provides a good API and notation so that
+in Lean. However, data.basic provides a good API and notation so that
 we mostly don't have to worry about any of this.
 
 Note that polynomials are not (currently) implemented in a computable way -
@@ -141,80 +140,80 @@ that is, the definition of polynomials is sufficiently abstracted that it
 requires classical choice. This might change at some point (because it is
 not ideal...)
 
-import data.polynomial.basic
+import data.basic
 
 -/
 
 -- 2.10 The ring-structure of polynomials
 /-
 As mentioned, the commutative ring structure on polynomials over a commutative
-ring is virtually present by definition. polynomial.semiring is the core
+ring is virtually present by definition. semiring is the core
 instance - there are various other instances for generalisations or different
 ways to view the structure.
 -/
 
 -- 2.11 The k-algebra structure of polynomials
 /-
-The polynomial.C map is the constant map from R to R[X]. This is the algebra 
-map. The instance polynomial.algebra_of_algebra shows that A[X] is an R-algebra
+The C map is the constant map from R to R[X]. This is the algebra 
+map. The instance algebra_of_algebra shows that A[X] is an R-algebra
 when A is an R-algebra, which gives the special case when A = R, and API is
 provided for working with this.
 
-import data.polynomial.algebra_map
+import data.algebra_map
 -/
 
 -- 2.12 Units of k[x]
 /-
-The theorem polynomial.is_unit_iff characterises the units of R[X], where R is 
+The theorem is_unit_iff characterises the units of R[X], where R is 
 commutative domain, as the embedding of the units of R. When R is not a domain
 but simply a commutative semiring, it is still true that a member of R is a unit
-iff its embedding is (polynomial.is_unit_C). (Consider (2X + 1)*(2X + 1) when R
+iff its embedding is (is_unit_C). (Consider (2X + 1)*(2X + 1) when R
 is Z/(4) - 2X + 1 is a unit without degree 0. The issue turns out to be that
 deg(f*g) = deg f * deg g for non-zero f, g may not be true in the presence of
 zero divisors.)
 
-import data.polynomial.ring_division
+import data.ring_division
 -/
 
 -- 2.13 The k-vector structure of polynomials
 /-
-We have polynomial.module as an instance, and it's definitionally equal to the
+We have module as an instance, and it's definitionally equal to the
 instance of module that arises from the instance of polynomials as an algebra
 under the base ring - so from Lean's point of view these are the same.
 
-import data.polynomial.basic
+import data.basic
 -/
 
 -- 2.14 Powers of x
 /-
 monomial n a is the monomial a*X^n. We have sum_monomial_eq which tells us that
 a polynomial is equal to the sum over its coefficients f_i of f_i*X^i (Lean
-provides polynomial.sum to do this kind of summation: internally this is a 
+provides sum to do this kind of summation: internally this is a 
 finset.sum. This is as opposed to a finsum, which is the infinite sum over
 finite non-zero values mentioned in the paper: for various reasons there are a
 few different ways of doing finite sums but this is the way polynomial does 
 things). We also have from this a way of doing induction on polynomials by 
 proving an additive fact for monomials.
 
-import data.polynomial.induction
+import data.induction
 
 -/
 
 -- 2.15 Coefficients
 /-
-polynomial.coeff p n gives the nth coefficient of n in p, where n : ℕ. Extending
+coeff p n gives the nth coefficient of n in p, where n : ℕ. Extending
 this to ℤ would not be too hard; what the appropriate decision in 4.1 would
 be is yet to be answered.
 
-import data.polynomial.basic
+import data.basic
 -/
 
 -- 2.16 Degree
 /-
-We have both polynomial.degree and polynomial.nat_degree (which differ in how
+We have both degree and nat_degree (which differ in how
 they handle the zero polynomial). There are a good number of theorems for these.
 
-import data.polynomial.basic
+import data.basic
 -/
 
 
@@ -222,27 +221,27 @@ import data.polynomial.basic
 /-
 There is a monic predicate.
 
-import data.polynomial.degree.definitions
+import data.degree.definitions
 -/
 
 -- 2.18 Evaluation
 /-
-polynomial.eval exists, though it is non-computable so you can prove theorems
+eval exists, though it is non-computable so you can prove theorems
 about it but not actually evaluate computationally.
 
-import data.polynomial.basic
+import data.basic
 -/
 -- 2.19 Roots
 /-
-polynomial.roots gives a multiset of the polynomial's roots,
+roots gives a multiset of the polynomial's roots,
 including multiplicity. It does not have a meaningful definition for the zero
 polynomial!
 
-import data.polynomial.basic
+import data.basic
 -/
 -- 2.20 Vandermonde invertibility
 /-
-This derives from polynomial.card_roots, which is a version of it though not
+This derives from card_roots, which is a version of it though not
 in the equivalent form.
 
 However, it is also true separately from polynomial theory.
@@ -252,100 +251,115 @@ However, it is also true separately from polynomial theory.
 /-
 Easily proved.
 -/
+open finset
+open_locale big_operators classical polynomial matrix
 
-lemma det_vandermonde_ne_zero_of_injective {R : Type*} [comm_ring R] [is_domain R] {n : ℕ} (α : fin n → R) (h : function.injective α) : (vandermonde α).det ≠ 0 :=
+namespace matrix
+lemma det_vandermonde_ne_zero_of_injective {R : Type*} [comm_ring R] [is_domain R] {n : ℕ}
+(α : fin n ↪ R) : (vandermonde α).det ≠ 0 :=
 begin
-  rw det_vandermonde,
-  simp only [finset.prod_ne_zero_iff, finset.mem_univ, forall_true_left, finset.mem_filter, true_and],
-  intros _ _ hij contra,
-  rw sub_eq_zero at contra,
-  exact ne_of_lt hij (h contra.symm)
+  simp_rw [det_vandermonde, prod_ne_zero_iff, mem_filter, mem_univ, forall_true_left,
+  true_and, sub_ne_zero, ne.def, embedding_like.apply_eq_iff_eq],
+  rintro _ _ _ rfl, apply lt_irrefl _ (by assumption)
 end
 
-theorem matrix.vandermonde_invertibility {R : Type*} [comm_ring R] [is_domain R] {n : ℕ} {α : fin n → R} (h₁ : function.injective α) {f : fin n → R} (h₂ : ∀ j : fin n, ∑ i : fin n, f i * (α j ^ (i : ℕ)) = 0) : ∀ i, f i = 0 :=
+theorem vandermonde_invertibility' {R : Type*} [comm_ring R] [is_domain R] {n : ℕ}
+(α : fin n ↪ R) {f : fin n → R}
+(h₂ : ∀ j, ∑ i : fin n, (α j ^ (i : ℕ)) * f i = 0) : f = 0
+:= by {apply eq_zero_of_mul_vec_eq_zero (det_vandermonde_ne_zero_of_injective α), ext, apply h₂}
+
+theorem vandermonde_invertibility {R : Type*} [comm_ring R] [is_domain R] {n : ℕ}
+{α : fin n ↪ R} {f : fin n → R}
+(h₂ : ∀ j, ∑ i, f i * (α j ^ (i : ℕ))  = 0) : f = 0
+:= by {apply vandermonde_invertibility' α, simp_rw mul_comm, exact h₂}
+
+theorem vandermonde_invertibility_transposed {R : Type*} [comm_ring R] [is_domain R] {n : ℕ} 
+{α : fin n ↪ R} {f : fin n → R} (h₂ : ∀ i : fin n, ∑ j : fin n, f j * (α j ^ (i : ℕ)) = 0)
+: f = 0
+:= by {apply eq_zero_of_vec_mul_eq_zero (det_vandermonde_ne_zero_of_injective α), ext, apply h₂}
+
+end matrix
+
+namespace polynomial
+open linear_equiv matrix
+
+noncomputable def degree_lt_equiv' (R : Type*) [comm_ring R] (n : ℕ)
+: degree_lt R n ≃ₗ[R] (fin n → R) :=
+{ to_fun := λ p n, (↑p : R[X]).coeff n,
+  inv_fun := λ f, ⟨∑ i : fin n, monomial i (f i),
+    (degree_lt R n).sum_mem (λ i _, mem_degree_lt.mpr (lt_of_le_of_lt
+      (degree_monomial_le i (f i)) (with_bot.coe_lt_coe.mpr i.is_lt)))⟩,
+  map_add' := λ p q, by { ext, rw [submodule.coe_add, coeff_add], refl },
+  map_smul' := λ x p, by { ext, rw [submodule.coe_smul, coeff_smul], refl },
+  left_inv :=
+  begin
+    rintro ⟨p, hp⟩, ext1,
+    simp only [submodule.coe_mk],
+    by_cases hp0 : p = 0,
+    { subst hp0, simp only [coeff_zero, linear_map.map_zero, finset.sum_const_zero] },
+    rw [mem_degree_lt, degree_eq_nat_degree hp0, with_bot.coe_lt_coe] at hp,
+    conv_rhs { rw [p.as_sum_range' n hp, ← fin.sum_univ_eq_sum_range] },
+  end,
+  right_inv :=
+  begin
+    intro f, ext i,
+    simp only [finset_sum_coeff, submodule.coe_mk],
+    rw [finset.sum_eq_single i, coeff_monomial, if_pos rfl],
+    { rintro j - hji, rw [coeff_monomial, if_neg], rwa [← subtype.ext_iff] },
+    { intro h, exact (h (finset.mem_univ _)).elim }
+  end }
+
+theorem degree_lt_equiv_eq_iff {R : Type*} [comm_ring R] {n : ℕ} {p q : R[X]}
+(h₀ : p ∈ degree_lt R n) (h₁ : q ∈ degree_lt R n) : degree_lt_equiv' _ _ ⟨_, h₀⟩ = degree_lt_equiv' _ _ ⟨_, h₁⟩ ↔ p = q :=
+by { rw (linear_equiv.injective _).eq_iff, exact subtype.mk_eq_mk }
+
+theorem degree_lt_equiv_eq_zero_iff {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]}
+(h : p ∈ degree_lt R n) : degree_lt_equiv' _ _ ⟨_, h⟩ = 0 ↔ p = 0 :=
+by { rw linear_equiv.map_eq_zero_iff, apply submodule.mk_eq_zero, }
+
+theorem degree_lt_equiv_apply {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]}
+(h : p ∈ degree_lt R n) (i : fin n) : degree_lt_equiv' _ _ ⟨_, h⟩ i = p.coeff i := rfl
+
+theorem degree_lt_equiv_eval {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]}
+(h : p ∈ degree_lt R n) (x : R) :
+∑ i, degree_lt_equiv' _ _ ⟨_, h⟩ i * (x ^ (i : ℕ)) = p.eval x :=
 begin
-  suffices h : f = 0, rw h, exact λ i, rfl,
-  apply eq_zero_of_mul_vec_eq_zero (det_vandermonde_ne_zero_of_injective _ h₁),
-  refine funext (λ j, _),
-  simp only [pi.zero_apply, ← h₂ j, mul_vec, dot_product, vandermonde_apply],
-  refine congr_arg _ (funext (λ _, by ring)),
+  simp_rw [degree_lt_equiv_apply h, eval_eq_sum],
+  exact sum_fin (λ e a, a * x ^ e) (λ i, zero_mul (x ^ i)) (mem_degree_lt.mp h)
 end
 
-theorem matrix.vandermonde_invertibility_transposed {R : Type*} [comm_ring R] [is_domain R] {n : ℕ} {α : fin n → R} (h₁ : function.injective α) {f : fin n → R} (h₂ : ∀ i : fin n, ∑ j : fin n, f j * (α j ^ (i : ℕ)) = 0) : ∀ i, f i = 0 :=
+theorem degree_lt_root {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]}
+(h : p ∈ degree_lt R n) (x : R) : p.is_root x ↔
+∑ i, degree_lt_equiv' _ _ ⟨_, h⟩ i * (x ^ (i : ℕ)) = 0
+:= by rw [is_root.def, degree_lt_equiv_eval h]
+
+theorem vandermonde_invertibility {R : Type*} [comm_ring R] [is_domain R] {n : ℕ}
+(α : fin n ↪ R) {p : R[X]} (h₀ : p ∈ degree_lt R n) (h₁ : ∀ j, p.is_root (α j)) : p = 0 :=
 begin
-  suffices h : f = 0, rw h, exact λ i, rfl,
-  have f_in_V_kernel : (vandermonde α).vec_mul f = 0, by { rw function.funext_iff, convert h₂ },
-  apply eq_zero_of_vec_mul_eq_zero (det_vandermonde_ne_zero_of_injective α h₁) f_in_V_kernel
+  simp_rw degree_lt_root h₀ at h₁,
+  exact (degree_lt_equiv_eq_zero_iff h₀).mp (vandermonde_invertibility h₁)
 end
 
-theorem polynomial.vandermonde_invertibility {R : Type*} [comm_ring R] [is_domain R] {n : ℕ} {α : fin n → R} {p : R[X]} (h₀ : degree p < n) (h₁ : function.injective α) (h₂ : ∀ j, p.is_root (α j)) : p = 0 :=
+theorem vandermonde_invertibility_tranposed {R : Type*} [comm_ring R] [is_domain R]
+{n : ℕ} (α : fin n ↪ R) {p : R[X]} (h₀ : p ∈ degree_lt R n)
+(h₁ : ∀ i : fin n, ∑ j : fin n, p.coeff j * (α j ^ (i : ℕ)) = 0) : p = 0 :=
+(degree_lt_equiv_eq_zero_iff h₀).mp (vandermonde_invertibility_transposed h₁)
+
+theorem vandermonde_agreement {R : Type*} [comm_ring R] [is_domain R] {n : ℕ}
+(α : fin n ↪ R) {p q : R[X]} (h₀ : (p - q) ∈ degree_lt R n)
+(h₂ : ∀ j, p.eval (α j) = q.eval (α j)) : p = q :=
 begin
-  ext m, rw coeff_zero, 
-  cases lt_or_le m n,
-  { simp only [is_root.def, eval_eq_sum, ← sum_fin _ _ h₀, zero_mul, forall_const] at h₂,
-    rw ← fin.coe_mk h, apply matrix.vandermonde_invertibility h₁ h₂ },
-  { exact coeff_eq_zero_of_degree_lt (lt_of_lt_of_le h₀ (with_bot.coe_le_coe.mpr h)) },
+  rw ← sub_eq_zero, apply vandermonde_invertibility α h₀,
+  simp_rw [is_root.def, eval_sub, sub_eq_zero], exact h₂
 end
-
-theorem polynomial.vandermonde_invertibility_tranposed {R : Type*} [comm_ring R] [is_domain R] {n : ℕ} {α : fin n → R} {p : R[X]} (h₀ : degree p < n) (h₁ : function.injective α) (h₂ : ∀ i : fin n, ∑ j : fin n, p.coeff j * (α j ^ (i : ℕ)) = 0) : p = 0 :=
-begin
-  ext m, rw coeff_zero,
-  cases lt_or_le m n,
-  { rw ← fin.coe_mk h, apply matrix.vandermonde_invertibility_transposed h₁ h₂ },
-  { exact coeff_eq_zero_of_degree_lt (lt_of_lt_of_le h₀ (with_bot.coe_le_coe.mpr h)) }
-end
-
-theorem polynomial.vandermonde_agreement {R : Type*} [comm_ring R] [is_domain R] {n : ℕ} {α : fin n → R} {p q : R[X]} (h₀ : (p - q).degree < n) (h₁ : function.injective α) (h₂ : ∀ j, p.eval (α j) = q.eval (α j)) : p = q :=
-begin
-  rw ← sub_eq_zero, apply polynomial.vandermonde_invertibility h₀ h₁,
-  simp only [h₂, is_root.def, eval_sub, sub_self], exact λ _, rfl
-end
-
-
-noncomputable def finset.to_map_fin_card {α : Type*} (S : finset α) : fin (S.card) ↪ α :=
-⟨ λ n, S.to_list.nth_le n (by {convert n.property, exact S.length_to_list }),
-  λ _ _ hmn, by { rw [list.nodup.nth_le_inj_iff S.nodup_to_list] at hmn,
-                simp only [hmn, fin.eq_iff_veq, fin.val_eq_coe]} ⟩
-
-theorem finset.to_map_fin_card.mem {α : Type*} (S : finset α) (i : fin (S.card)) : S.to_map_fin_card i ∈ S :=
-begin
-  rw [finset.to_map_fin_card, ← S.mem_to_list],
-  apply list.nth_le_mem
-end
-
-theorem polynomial.vandermonde_invertibility' {R : Type*} [comm_ring R] [is_domain R] {S : finset R} {p : R[X]} (h₀ : degree p < S.card) (h₂ : ∀ x ∈ S, p.is_root x) : p = 0 :=
-begin
-  ext m, rw coeff_zero,
-  cases lt_or_le m (S.card),
-  { simp only [is_root.def, eval_eq_sum, ← sum_fin _ _ h₀, zero_mul, forall_const] at h₂,
-    rw ← fin.coe_mk h,
-    apply matrix.vandermonde_invertibility (function.embedding.injective _) (λ _, h₂ _ (finset.to_map_fin_card.mem S _)),
-  },
-  { exact coeff_eq_zero_of_degree_lt (lt_of_lt_of_le h₀ (with_bot.coe_le_coe.mpr h)) }
-end
-
-theorem polynomial.vandermonde_invertibility_tranposed' {R : Type*} [comm_ring R] [is_domain R] {S : finset R} {p : R[X]} (h₀ : degree p < S.card) (h₂ : ∀ i : fin (S.card), ∑ j : fin (S.card), p.coeff j * (S.to_map_fin_card j) ^ (i : ℕ) = 0) : p = 0 :=
-begin
-  ext m, rw coeff_zero,
-  cases lt_or_le m (S.card),
-  { rw ← fin.coe_mk h, apply matrix.vandermonde_invertibility_transposed (function.embedding.injective _) h₂ },
-  { exact coeff_eq_zero_of_degree_lt (lt_of_lt_of_le h₀ (with_bot.coe_le_coe.mpr h)) }
-end
-
-theorem polynomial.vandermonde_agreement' {R : Type*} [comm_ring R] [is_domain R] {S : finset R} {p q : R[X]} (h₀ : degree (p - q) < S.card)  (h₂ : ∀ x ∈ S, p.eval x = q.eval x) : p = q :=
-begin
-  rw ← sub_eq_zero, apply polynomial.vandermonde_invertibility' (by assumption),
-  simpa only [is_root.def, eval_sub, sub_eq_zero]
-end
-
 
 -- 2.22 Derivatives
 /-
-polynomial.derivative is the formal derivative of a polynomial. The product 
+derivative is the formal derivative of a  The product 
 rule is proven for it. Bernoulli's rule is not proven for it, but this shouldn't
 be too difficult.
 
-import data.polynomial.derivative
+import data.derivative
 -/
 
 theorem bernoulli_rule {R : Type*} [comm_ring R]  {p q : R[X]} {x : R} (h : p.is_root x) : (p*q).derivative.eval x = p.derivative.eval x * q.eval x :=
@@ -353,7 +367,7 @@ begin
   rw is_root.def at h,
   simp only [is_root.def, h, derivative_mul, eval_add, eval_mul, zero_mul, add_zero]
 end 
-
+end polynomial
 -- 2.23 Quotients and remainders
 /-
 There is a notion of polynomial division and modulo, but also polynomial
@@ -372,7 +386,7 @@ Follows from Euclidean domain.
 
 -- 2.26 Squarefreeness
 /-
-polynomial.separable.squarefree precisely gives that a polynomial is squarefree
+separable.squarefree precisely gives that a polynomial is squarefree
 if it is separable - which is exactly that it is coprime with its formal derivative.
 
 import field_theory.separable
@@ -413,7 +427,7 @@ lemma nodal_eq_remove {F : Type u} [field F] {s : finset F} {x : F} (hx : x ∈ 
 
 lemma nodal_derive_eval_node_eq {F : Type u} [field F] {s : finset F} {x : F} (hx : x ∈ s) : eval x (nodal s).derivative = ∏ y in (s.erase x), (x - y) := 
 begin
-  rw [nodal_eq_remove hx, bernoulli_rule (polynomial.root_X_sub_C.mpr rfl)],
+  rw [nodal_eq_remove hx, bernoulli_rule (root_X_sub_C.mpr rfl)],
   simp_rw [eval_prod, derivative_sub, derivative_X, derivative_C, sub_zero, eval_one, one_mul, eval_sub, eval_X, eval_C]
 end
 
