@@ -7,6 +7,7 @@ import data.matrix.basic
 import data.polynomial.derivative
 import logic.equiv.basic
 import linear_algebra.lagrange
+import algebra.order.monoid
 /-import algebra.ring.basic
 import ring_theory.ideal.basic
 import algebra.group.units
@@ -140,7 +141,7 @@ that is, the definition of polynomials is sufficiently abstracted that it
 requires classical choice. This might change at some point (because it is
 not ideal...)
 
-import data.basic
+import data.polynomial.basic
 
 -/
 
@@ -172,7 +173,7 @@ is Z/(4) - 2X + 1 is a unit without degree 0. The issue turns out to be that
 deg(f*g) = deg f * deg g for non-zero f, g may not be true in the presence of
 zero divisors.)
 
-import data.ring_division
+import data.polynomial.ring_division
 -/
 
 -- 2.13 The k-vector structure of polynomials
@@ -181,7 +182,7 @@ We have module as an instance, and it's definitionally equal to the
 instance of module that arises from the instance of polynomials as an algebra
 under the base ring - so from Lean's point of view these are the same.
 
-import data.basic
+import data.polynomial.basic
 -/
 
 -- 2.14 Powers of x
@@ -195,7 +196,7 @@ few different ways of doing finite sums but this is the way polynomial does
 things). We also have from this a way of doing induction on polynomials by 
 proving an additive fact for monomials.
 
-import data.induction
+import data.polynomial.induction
 
 -/
 
@@ -205,7 +206,7 @@ coeff p n gives the nth coefficient of n in p, where n : ℕ. Extending
 this to ℤ would not be too hard; what the appropriate decision in 4.1 would
 be is yet to be answered.
 
-import data.basic
+import data.polynomial.basic
 -/
 
 -- 2.16 Degree
@@ -213,7 +214,7 @@ import data.basic
 We have both degree and nat_degree (which differ in how
 they handle the zero polynomial). There are a good number of theorems for these.
 
-import data.basic
+import data.polynomial.basic
 -/
 
 
@@ -229,7 +230,7 @@ import data.degree.definitions
 eval exists, though it is non-computable so you can prove theorems
 about it but not actually evaluate computationally.
 
-import data.basic
+import data.polynomial.basic
 -/
 -- 2.19 Roots
 /-
@@ -237,7 +238,7 @@ roots gives a multiset of the polynomial's roots,
 including multiplicity. It does not have a meaningful definition for the zero
 polynomial!
 
-import data.basic
+import data.polynomial.basic
 -/
 -- 2.20 Vandermonde invertibility
 /-
@@ -255,28 +256,32 @@ open finset
 open_locale big_operators classical polynomial matrix
 
 namespace matrix
-lemma det_vandermonde_ne_zero_of_injective {R : Type*} [comm_ring R] [is_domain R] {n : ℕ}
-(α : fin n ↪ R) : (vandermonde α).det ≠ 0 :=
+lemma det_vandermonde_ne_zero_of_injective {R : Type*} [comm_ring R] 
+[is_domain R] {n : ℕ} (α : fin n ↪ R) : (vandermonde α).det ≠ 0 :=
 begin
-  simp_rw [det_vandermonde, prod_ne_zero_iff, mem_filter, mem_univ, forall_true_left,
-  true_and, sub_ne_zero, ne.def, embedding_like.apply_eq_iff_eq],
+  simp_rw [det_vandermonde, prod_ne_zero_iff, mem_filter, 
+  mem_univ, forall_true_left, true_and, sub_ne_zero, ne.def, 
+  embedding_like.apply_eq_iff_eq],
   rintro _ _ _ rfl, apply lt_irrefl _ (by assumption)
 end
 
-theorem vandermonde_invertibility' {R : Type*} [comm_ring R] [is_domain R] {n : ℕ}
-(α : fin n ↪ R) {f : fin n → R}
+theorem vandermonde_invertibility' {R : Type*} [comm_ring R]
+[is_domain R] {n : ℕ} (α : fin n ↪ R) {f : fin n → R}
 (h₂ : ∀ j, ∑ i : fin n, (α j ^ (i : ℕ)) * f i = 0) : f = 0
 := by {apply eq_zero_of_mul_vec_eq_zero (det_vandermonde_ne_zero_of_injective α), ext, apply h₂}
 
-theorem vandermonde_invertibility {R : Type*} [comm_ring R] [is_domain R] {n : ℕ}
+theorem vandermonde_invertibility {R : Type*} [comm_ring R]
+[is_domain R] {n : ℕ}
 {α : fin n ↪ R} {f : fin n → R}
 (h₂ : ∀ j, ∑ i, f i * (α j ^ (i : ℕ))  = 0) : f = 0
 := by {apply vandermonde_invertibility' α, simp_rw mul_comm, exact h₂}
 
-theorem vandermonde_invertibility_transposed {R : Type*} [comm_ring R] [is_domain R] {n : ℕ} 
-{α : fin n ↪ R} {f : fin n → R} (h₂ : ∀ i : fin n, ∑ j : fin n, f j * (α j ^ (i : ℕ)) = 0)
-: f = 0
-:= by {apply eq_zero_of_vec_mul_eq_zero (det_vandermonde_ne_zero_of_injective α), ext, apply h₂}
+theorem vandermonde_invertibility_transposed {R : Type*} [comm_ring R] 
+[is_domain R] {n : ℕ}
+{α : fin n ↪ R} {f : fin n → R}
+(h₂ : ∀ i : fin n, ∑ j : fin n, f j * (α j ^ (i : ℕ)) = 0) : f = 0
+:= by {apply eq_zero_of_vec_mul_eq_zero 
+(det_vandermonde_ne_zero_of_injective α), ext, apply h₂}
 
 end matrix
 
@@ -451,3 +456,51 @@ begin
 end
 
 end gdthree
+
+section gdfour
+open_locale classical polynomial
+
+open polynomial
+
+def approximate_error {R : Type*} [comm_ring R] (A B : R[X]) : R[X] × R[X] →ₗ[R] R[X] := linear_map.coprod (algebra.lmul_right _ B) (algebra.lmul_right _ (-A))
+
+def approximant_quotient {R : Type*} [comm_ring R] {a b A B : R[X]} {n : ℕ} (h₀ : A ∈ degree_lt R n.succ) (h₁ : B ∈ degree_lt R n) {t : ℕ} (h₀ : a ∈ degree_lt R t.succ) (h₁ : b ∈ degree_lt R t) : R[X] × R[X] →ₗ[R] R[X] ⧸ degree_lt R (n - t) := (degree_lt R (n - t)).mkq.comp (approximate_error A B)
+
+lemma approximate_error_apply {R : Type*} [comm_ring R] {A B a b : R[X]} : approximate_error A B (a, b) = a*B - b*A :=
+by simpa only [approximate_error, linear_map.coprod_apply, algebra.lmul_right_apply, mul_neg]
+
+theorem add_lt_add_of_lt_of_le' {α : Type*} [preorder α] [has_add α] [covariant_class α α has_add.add has_le.le] [covariant_class α α (function.swap has_add.add) has_lt.lt] {a c : with_bot α} {b d : α} (h₁ : a < b) (h₂ : c ≤ d) :
+a + c < b + d :=
+begin
+  rw ← with_bot.coe_add,
+  cases a; cases c; try {rw with_bot.none_eq_bot at *},
+  simp, apply with_bot.bot_lt_coe,
+  simp, apply with_bot.bot_lt_coe,
+  simp, apply with_bot.bot_lt_coe,
+  repeat {rw with_bot.some_eq_coe at *},
+  rw ← with_bot.coe_add,
+  norm_cast at *,
+  apply add_lt_add_of_lt_of_le h₁ h₂
+end
+
+theorem approximate_error_mem_degree_lt_of_degree_lt {R : Type*} [comm_ring R] [no_zero_divisors R] {a b A B : R[X]} {n : ℕ} (h₀ : A ∈ degree_le R n) (h₁ : B ∈ degree_lt R n) {t : ℕ} (h₂ : a ∈ degree_le R t) (h₃ : b ∈ degree_lt R t) : approximate_error A B (a, b) ∈ degree_lt R (n + t) := 
+begin
+  rw approximate_error_apply,
+  rw mem_degree_lt at *,
+  rw mem_degree_le at *,
+  have h : (a * B - b * A).degree ≤ max (a.degree + B.degree) (b.degree + A.degree),
+    exact le_trans (degree_sub_le _ _) (le_of_eq (by simp only [degree_mul])),
+  rw le_max_iff at h,
+  rw with_bot.coe_add,
+  cases h;
+  apply lt_of_le_of_lt h,
+  sorry,
+end
+
+
+
+theorem approximant_exists {R : Type*} [comm_ring R] {A B : R[X]} {n : ℕ} (h₀ : A.degree = n) (h₁ : B ∈ degree_lt R n) (t : ℕ) : ∃ a b : R[X], a ∈ degree_lt R t.succ ∧ b ∈ degree_lt R t ∧ a*B - b*A ∈ degree_lt R (n - t)
+:= sorry
+
+
+end gdfour
