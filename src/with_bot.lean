@@ -64,23 +64,23 @@ end
 -- The "missing" theorems: "nearly cv/con".
 
 protected theorem add_lt_add_left [has_add α] [has_lt α] [covariant_class α α (+) (<)]
-(bc : b < c) (ha : a ≠ ⊤) : a + b < a + c :=
+(ha : a ≠ ⊤) (hbc : b < c) : a + b < a + c :=
 begin
   lift a to α using ha,
-  cases b, exact (not_none_lt _ bc).elim,
+  cases b, exact (not_none_lt _ hbc).elim,
   cases c, exact coe_lt_top _,
-  rw some_lt_some at bc, simp only [bc, some_eq_coe, ← coe_add, coe_lt_coe],
-  exact add_lt_add_left bc _,
+  rw some_lt_some at hbc, simp only [hbc, some_eq_coe, ← coe_add, coe_lt_coe],
+  exact add_lt_add_left hbc _
 end
 
 protected theorem add_lt_add_right [has_add α] [has_lt α] [covariant_class α α (swap (+)) (<)]
-(bc : b < c) (ha : a ≠ ⊤) : b + a < c + a :=
+(ha : a ≠ ⊤) (hbc : b < c) : b + a < c + a :=
 begin
   lift a to α using ha,
-  cases b, exact (not_none_lt _ bc).elim,
+  cases b, exact (not_none_lt _ hbc).elim,
   cases c, exact coe_lt_top _,
-  rw some_lt_some at bc, simp only [bc, some_eq_coe, ← coe_add, coe_lt_coe],
-  exact add_lt_add_right bc _,
+  rw some_lt_some at hbc, simp only [hbc, some_eq_coe, ← coe_add, coe_lt_coe],
+  exact add_lt_add_right hbc _
 end
 
 protected theorem le_of_add_le_add_left [has_add α] [has_le α] [contravariant_class α α (+) (≤)]
@@ -90,7 +90,7 @@ begin
   cases c; try {exact le_none},
   cases b, exact (not_top_le_coe' _ hbc).elim,
   simp only [some_eq_coe, ← coe_add, coe_le_coe] at hbc, rw some_le_some,
-  exact le_of_add_le_add_left hbc,
+  exact le_of_add_le_add_left hbc
 end
 
 protected theorem le_of_add_le_add_right [has_add α] [has_le α]
@@ -109,12 +109,12 @@ end
 protected lemma add_lt_add_iff_left' [has_add α] [has_lt α]
 [covariant_class α α (+) (<)] [contravariant_class α α (+) (<)]
 (ha : a ≠ ⊤) : a + b < a + c ↔ b < c :=
-⟨λ hbc, lt_of_add_lt_add_left hbc, λ hbc, with_top.add_lt_add_left hbc ha⟩
+⟨λ hbc, lt_of_add_lt_add_left hbc, λ hbc, with_top.add_lt_add_left ha hbc⟩
 
 protected lemma add_lt_add_iff_right' [has_add α] [has_lt α]
 [covariant_class α α (swap (+)) (<)] [contravariant_class α α (swap (+)) (<)]
 (ha : a ≠ ⊤) : b + a < c + a ↔ b < c :=
-⟨λ hbc, lt_of_add_lt_add_right hbc, λ hbc, with_top.add_lt_add_right hbc ha⟩
+⟨λ hbc, lt_of_add_lt_add_right hbc, λ hbc, with_top.add_lt_add_right ha hbc⟩
 
 protected lemma add_le_add_iff_left [has_add α] [has_le α]
 [covariant_class α α (+) (≤)] [contravariant_class α α (+) (≤)]
@@ -131,14 +131,14 @@ protected lemma add_le_add_iff_right [has_add α] [has_le α]
 theorem add_lt_add_of_lt_of_lt_of_ne_left_top [has_add α] [preorder α]
 [covariant_class α α (+) (<)] [covariant_class α α (swap (+)) (<)]
 (hb : b ≠ ⊤) (hab : a < b) (hcd : c < d) : a + c < b + d :=
-calc  a + c < b + c : with_top.add_lt_add_right hab (ne_top_of_lt hcd)
-      ...   < b + d : with_top.add_lt_add_left hcd hb
+calc  a + c < b + c : with_top.add_lt_add_right (ne_top_of_lt hcd) hab
+      ...   < b + d : with_top.add_lt_add_left hb hcd
 
 theorem add_lt_add_of_lt_of_lt_of_ne_right_top [has_add α] [preorder α]
 [covariant_class α α (+) (<)] [covariant_class α α (swap (+)) (<)]
 (hd : d ≠ ⊤) (hab : a < b) (hcd : c < d) : a + c < b + d :=
-calc  a + c < a + d : with_top.add_lt_add_left hcd (ne_top_of_lt hab)
-      ...   < b + d : with_top.add_lt_add_right hab hd
+calc  a + c < a + d : with_top.add_lt_add_left (ne_top_of_lt hab) hcd
+      ...   < b + d : with_top.add_lt_add_right hd hab
 
 theorem add_lt_add_of_lt_of_lt_of_cov_lt_cov_swap_lt [has_add α] [preorder α]
 [covariant_class α α (+) (<)] [covariant_class α α (swap (+)) (<)]
@@ -147,51 +147,169 @@ begin
   cases b,
   { cases d,
     { rw [none_eq_top, add_top, ← @top_add _ _ c],
-      apply with_top.add_lt_add_right hab, exact ne_top_of_lt' hcd },
+      exact with_top.add_lt_add_right (ne_top_of_lt' hcd) hab },
     { exact add_lt_add_of_lt_of_lt_of_ne_right_top (coe_ne_top) hab hcd }
-  }, exact add_lt_add_of_lt_of_lt_of_ne_left_top (coe_ne_top) hab hcd
+  },  exact add_lt_add_of_lt_of_lt_of_ne_left_top (coe_ne_top) hab hcd
 end
 
 theorem add_lt_add_of_lt_of_lt_cov_lt [has_add α] [preorder α]
 [covariant_class α α (+) (<)] [covariant_class α α (swap (+)) (≤)]
 (hab : a < b) (hcd : c < d) : a + c < b + d :=
-calc  a + c < a + d : with_top.add_lt_add_left hcd (ne_top_of_lt hab)
+calc  a + c < a + d : with_top.add_lt_add_left (ne_top_of_lt hab) hcd
       ...   ≤ b + d : add_le_add_right hab.le _
 
 theorem add_lt_add_of_lt_of_lt_cov_swap_lt [has_add α] [preorder α]
 [covariant_class α α (+) (≤)] [covariant_class α α (swap (+)) (<)]
 (hab : a < b) (hcd : c < d) : a + c < b + d :=
-calc  a + c < b + c : with_top.add_lt_add_right hab (ne_top_of_lt hcd)
+calc  a + c < b + c : with_top.add_lt_add_right (ne_top_of_lt hcd) hab
       ...   ≤ b + d : add_le_add_left hcd.le b
 
 theorem add_lt_add_of_le_of_lt_of_left_ne_bot [has_add α] [preorder α]
 [covariant_class α α (+) (<)] [covariant_class α α (swap (+)) (≤)]
 (ha : a ≠ ⊤) (hab : a ≤ b) (hcd : c < d) : a + c < b + d :=
-calc  a + c < a + d : with_top.add_lt_add_left hcd ha
+calc  a + c < a + d : with_top.add_lt_add_left ha hcd
       ...   ≤ b + d : add_le_add_right hab _
 
 theorem add_lt_add_of_le_of_lt_of_right_ne_bot [has_add α] [preorder α]
 [covariant_class α α (+) (<)] [covariant_class α α (swap (+)) (≤)]
 (hb : b ≠ ⊤) (hab : a ≤ b) (hcd : c < d) : a + c < b + d :=
 calc  a + c ≤ b + c : add_le_add_right hab _
-      ...   < b + d : with_top.add_lt_add_left hcd hb
+      ...   < b + d : with_top.add_lt_add_left hb hcd
 
 theorem add_lt_add_of_lt_of_le_of_left_ne_bot [has_add α] [preorder α]
 [covariant_class α α (+) (≤)] [covariant_class α α (swap (+)) (<)]
 (hc : c ≠ ⊤) (hab : a < b) (hcd : c ≤ d) : a + c < b + d :=
-calc  a + c < b + c : with_top.add_lt_add_right hab hc
+calc  a + c < b + c : with_top.add_lt_add_right hc hab
       ...   ≤ b + d : add_le_add_left hcd _
 
 theorem add_lt_add_of_lt_of_le_of_right_ne_bot [has_add α] [preorder α]
 [covariant_class α α (+) (≤)] [covariant_class α α (swap (+)) (<)]
 (hd : d ≠ ⊤) (hab : a < b) (hcd : c ≤ d) : a + c < b + d :=
 calc  a + c ≤ a + d : add_le_add_left hcd _
-      ...   < b + d : with_top.add_lt_add_right hab hd
+      ...   < b + d : with_top.add_lt_add_right hd hab
 
 end with_top
 
 namespace with_bot
+variables {a b c d : with_bot α}
 
---- Need to add equivalent instances and lemmas (most of which will be straightforward applications of order_dual).
+lemma not_coe'_le_bot [has_le α] (a : α) : ¬ ↑a ≤ (⊥ : with_bot α) :=
+@with_top.not_top_le_coe' (order_dual α) _ _
+
+lemma ne_bot_of_gt' [has_lt α] (h : a < b) : b ≠ ⊥ :=
+@with_top.ne_top_of_lt' (order_dual α) _ _ _ h
+
+lemma lt_top_of_ne_top [has_lt α] (h : a ≠ ⊥) : ⊥ < a :=
+@with_top.lt_top_of_ne_top (order_dual α) _ _ h
+
+lemma lt_top_iff_ne_top' [has_lt α] : ⊥ < a ↔ a ≠ ⊥ := 
+@with_top.lt_top_iff_ne_top' (order_dual α) _ _
+
+-- cv/con instances, propagated
+
+instance contravariant_class_add_lt' [has_add α] [has_lt α]
+[contravariant_class α α (+) (<)] : contravariant_class (with_bot α) (with_bot α) (+) (<) :=
+@order_dual.contravariant_class_add_lt (with_top $ order_dual α) _ _ _
+
+instance contravariant_class_swap_add_lt [has_add α] [has_lt α]
+[contravariant_class α α (swap (+)) (<)] :
+contravariant_class (with_bot α) (with_bot α) (swap (+)) (<) :=
+@order_dual.contravariant_class_swap_add_lt (with_top $ order_dual α) _ _ _
+
+instance covariant_class_add_le [has_add α] [has_le α]
+[covariant_class α α (+) (≤)] : covariant_class (with_bot α) (with_bot α) (+) (≤) :=
+@order_dual.covariant_class_add_le (with_top $ order_dual α) _ _ _
+
+instance covariant_class_swap_add_le [has_add α] [has_le α]
+[covariant_class α α (swap (+)) (≤)] : covariant_class (with_bot α) (with_bot α) (swap (+)) (≤) :=
+@order_dual.covariant_class_swap_add_le (with_top $ order_dual α) _ _ _
+
+-- The "missing" theorems: "nearly cv/con".
+
+protected theorem add_lt_add_left [has_add α] [has_lt α] [covariant_class α α (+) (<)]
+(ha : a ≠ ⊥) (hbc : b < c) : a + b < a + c :=
+@with_top.add_lt_add_left (order_dual α) _ _ _ _ _ _ ha hbc.dual
+
+protected theorem add_lt_add_right [has_add α] [has_lt α] [covariant_class α α (swap (+)) (<)]
+(ha : a ≠ ⊥) (hbc : b < c) : b + a < c + a :=
+@with_top.add_lt_add_right (order_dual α) _ _ _ _ _ _ ha hbc.dual 
+
+protected theorem le_of_add_le_add_left [has_add α] [has_le α] [contravariant_class α α (+) (≤)]
+(ha : a ≠ ⊥) (hbc : a + b ≤ a + c) : b ≤ c :=
+@with_top.le_of_add_le_add_left (order_dual α) _ _ _ _ _ _ ha hbc.dual
+
+protected theorem le_of_add_le_add_right [has_add α] [has_le α]
+[contravariant_class α α (swap (+)) (≤)]
+(ha : a ≠ ⊥) (hbc : b + a ≤ c + a) : b ≤ c :=
+@with_top.le_of_add_le_add_right (order_dual α) _ _ _ _ _ _ ha hbc.dual
+
+-- Using the "missing theorems" along with the instances.
+
+protected lemma add_lt_add_iff_left' [has_add α] [has_lt α]
+[covariant_class α α (+) (<)] [contravariant_class α α (+) (<)]
+(ha : a ≠ ⊥) : a + b < a + c ↔ b < c :=
+@with_top.add_lt_add_iff_left' (order_dual α) _ _ _ _ _ _ _ ha
+
+protected lemma add_lt_add_iff_right' [has_add α] [has_lt α]
+[covariant_class α α (swap (+)) (<)] [contravariant_class α α (swap (+)) (<)]
+(ha : a ≠ ⊥) : b + a < c + a ↔ b < c :=
+@with_top.add_lt_add_iff_right' (order_dual α) _ _ _ _ _ _ _ ha
+
+protected lemma add_le_add_iff_left [has_add α] [has_le α]
+[covariant_class α α (+) (≤)] [contravariant_class α α (+) (≤)]
+(ha : a ≠ ⊥) : a + b ≤ a + c ↔ b ≤ c :=
+@with_top.add_le_add_iff_left (order_dual α) _ _ _ _ _ _ _ ha
+
+protected lemma add_le_add_iff_right [has_add α] [has_le α]
+[covariant_class α α (swap (+)) (≤)] [contravariant_class α α (swap (+)) (≤)]
+(ha : a ≠ ⊥) : b + a ≤ c + a ↔ b ≤ c :=
+@with_top.add_le_add_iff_right (order_dual α) _ _ _ _ _ _ _ ha
+
+-- add_lt_add lemmas. Many, MANY options.
+
+theorem add_lt_add_of_lt_of_lt_of_ne_left_top [has_add α] [preorder α]
+[covariant_class α α (+) (<)] [covariant_class α α (swap (+)) (<)]
+(ha : a ≠ ⊥) (hab : a < b) (hcd : c < d) : a + c < b + d :=
+@with_top.add_lt_add_of_lt_of_lt_of_ne_left_top (order_dual α) _ _ _ _ _ _ _ _ ha hab hcd
+
+theorem add_lt_add_of_lt_of_lt_of_ne_right_top [has_add α] [preorder α]
+[covariant_class α α (+) (<)] [covariant_class α α (swap (+)) (<)]
+(hc : c ≠ ⊥) (hab : a < b) (hcd : c < d) : a + c < b + d :=
+@with_top.add_lt_add_of_lt_of_lt_of_ne_right_top (order_dual α) _ _ _ _ _ _ _ _ hc hab hcd
+
+theorem add_lt_add_of_lt_of_lt_of_cov_lt_cov_swap_lt [has_add α] [preorder α]
+[covariant_class α α (+) (<)] [covariant_class α α (swap (+)) (<)]
+(hab : a < b) (hcd : c < d) : a + c < b + d :=
+@with_top.add_lt_add_of_lt_of_lt_of_cov_lt_cov_swap_lt (order_dual α) _ _ _ _ _ _ _ _ hab hcd
+
+theorem add_lt_add_of_lt_of_lt_cov_lt [has_add α] [preorder α]
+[covariant_class α α (+) (<)] [covariant_class α α (swap (+)) (≤)]
+(hab : a < b) (hcd : c < d) : a + c < b + d :=
+@with_top.add_lt_add_of_lt_of_lt_cov_lt (order_dual α) _ _ _ _ _ _ _ _ hab hcd
+
+theorem add_lt_add_of_lt_of_lt_cov_swap_lt [has_add α] [preorder α]
+[covariant_class α α (+) (≤)] [covariant_class α α (swap (+)) (<)]
+(hab : a < b) (hcd : c < d) : a + c < b + d :=
+@with_top.add_lt_add_of_lt_of_lt_cov_swap_lt (order_dual α) _ _ _ _ _ _ _ _ hab hcd
+
+theorem add_lt_add_of_le_of_lt_of_left_ne_bot [has_add α] [preorder α]
+[covariant_class α α (+) (<)] [covariant_class α α (swap (+)) (≤)]
+(ha : a ≠ ⊥) (hab : a ≤ b) (hcd : c < d) : a + c < b + d :=
+@with_top.add_lt_add_of_le_of_lt_of_right_ne_bot (order_dual α) _ _ _ _ _ _ _ _ ha hab hcd
+
+theorem add_lt_add_of_le_of_lt_of_right_ne_bot [has_add α] [preorder α]
+[covariant_class α α (+) (<)] [covariant_class α α (swap (+)) (≤)]
+(hb : b ≠ ⊥) (hab : a ≤ b) (hcd : c < d) : a + c < b + d :=
+@with_top.add_lt_add_of_le_of_lt_of_left_ne_bot (order_dual α) _ _ _ _ _ _ _ _ hb hab hcd
+
+theorem add_lt_add_of_lt_of_le_of_left_ne_bot [has_add α] [preorder α]
+[covariant_class α α (+) (≤)] [covariant_class α α (swap (+)) (<)]
+(hc : c ≠ ⊥) (hab : a < b) (hcd : c ≤ d) : a + c < b + d :=
+@with_top.add_lt_add_of_lt_of_le_of_right_ne_bot (order_dual α) _ _ _ _ _ _ _ _ hc hab hcd
+
+theorem add_lt_add_of_lt_of_le_of_right_ne_bot [has_add α] [preorder α]
+[covariant_class α α (+) (≤)] [covariant_class α α (swap (+)) (<)]
+(hd : d ≠ ⊥) (hab : a < b) (hcd : c ≤ d) : a + c < b + d :=
+@with_top.add_lt_add_of_lt_of_le_of_left_ne_bot (order_dual α) _ _ _ _ _ _ _ _ hd hab hcd
 
 end with_bot
