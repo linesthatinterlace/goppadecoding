@@ -8,13 +8,286 @@ import data.polynomial.derivative
 import logic.equiv.basic
 import linear_algebra.lagrange
 import algebra.order.monoid
-/-import algebra.ring.basic
-import ring_theory.ideal.basic
-import algebra.group.units
+import data.matrix.rank
+import linear_algebra.finite_dimensional
+import .with_bot
 
-import algebra.euclidean_domain
-import data.matrix.basis
-import data.matrix.notation-/
+namespace polynomial
+open_locale polynomial big_operators
+open with_bot
+
+noncomputable def degree_lt_equiv' (R : Type*) [comm_ring R] (n : ℕ)
+: degree_lt R n ≃ₗ[R] (fin n → R) :=
+{ to_fun := λ p n, (↑p : R[X]).coeff n,
+  inv_fun := λ f, ⟨∑ i : fin n, monomial i (f i),
+    (degree_lt R n).sum_mem (λ i _, mem_degree_lt.mpr (lt_of_le_of_lt
+      (degree_monomial_le i (f i)) (with_bot.coe_lt_coe.mpr i.is_lt)))⟩,
+  map_add' := λ p q, by { ext, rw [submodule.coe_add, coeff_add], refl },
+  map_smul' := λ x p, by { ext, rw [submodule.coe_smul, coeff_smul], refl },
+  left_inv :=
+  begin
+    rintro ⟨p, hp⟩, ext1,
+    simp only [submodule.coe_mk],
+    by_cases hp0 : p = 0,
+    { subst hp0, simp only [coeff_zero, linear_map.map_zero, finset.sum_const_zero] },
+    rw [mem_degree_lt, degree_eq_nat_degree hp0, with_bot.coe_lt_coe] at hp,
+    conv_rhs { rw [p.as_sum_range' n hp, ← fin.sum_univ_eq_sum_range] },
+  end,
+  right_inv :=
+  begin
+    intro f, ext i,
+    simp only [finset_sum_coeff, submodule.coe_mk],
+    rw [finset.sum_eq_single i, coeff_monomial, if_pos rfl],
+    { rintro j - hji, rw [coeff_monomial, if_neg], rwa [← subtype.ext_iff] },
+    { intro h, exact (h (finset.mem_univ _)).elim }
+  end }
+
+theorem degree_lt_equiv_eq_iff {R : Type*} [comm_ring R] {n : ℕ} {p q : R[X]}
+(h₀ : p ∈ degree_lt R n) (h₁ : q ∈ degree_lt R n) : degree_lt_equiv' _ _ ⟨_, h₀⟩ = degree_lt_equiv' _ _ ⟨_, h₁⟩ ↔ p = q :=
+by { rw (linear_equiv.injective _).eq_iff, exact subtype.mk_eq_mk }
+
+theorem degree_lt_equiv_eq_zero_iff {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]}
+(h : p ∈ degree_lt R n) : degree_lt_equiv' _ _ ⟨_, h⟩ = 0 ↔ p = 0 :=
+by { rw linear_equiv.map_eq_zero_iff, apply submodule.mk_eq_zero, }
+
+theorem degree_lt_equiv_apply {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]}
+(h : p ∈ degree_lt R n) (i : fin n) : degree_lt_equiv' _ _ ⟨_, h⟩ i = p.coeff i := rfl
+
+theorem degree_lt_equiv_eval {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]}
+(h : p ∈ degree_lt R n) (x : R) :
+∑ i, degree_lt_equiv' _ _ ⟨_, h⟩ i * (x ^ (i : ℕ)) = p.eval x :=
+begin
+  simp_rw [degree_lt_equiv_apply h, eval_eq_sum],
+  exact sum_fin (λ e a, a * x ^ e) (λ i, zero_mul (x ^ i)) (mem_degree_lt.mp h)
+end
+
+theorem degree_lt_root {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]}
+(h : p ∈ degree_lt R n) (x : R) : p.is_root x ↔
+∑ i, degree_lt_equiv' _ _ ⟨_, h⟩ i * (x ^ (i : ℕ)) = 0
+:= by rw [is_root.def, degree_lt_equiv_eval h]
+
+theorem mul_sub_mul_degree_lt_add_of_degrees_le_lt_le_lt {R : Type*} [comm_ring R] [no_zero_divisors R] {a b A B : R[X]} {n t : ℕ}
+(hA : A.degree ≤ n) (hB : B.degree < n) (ha : a.degree ≤ t) (hb : b.degree < t)
+: (a*B - b*A).degree < t + n := 
+begin
+  have h : (a * B - b * A).degree ≤ max (a.degree + B.degree) (b.degree + A.degree),
+    exact le_trans (degree_sub_le _ _) (le_of_eq (by simp only [degree_mul])),
+  rw [le_max_iff] at h, cases h; apply lt_of_le_of_lt h,
+  exact add_lt_add_of_le_of_lt_of_right_ne_bot (coe_ne_bot _) ha hB,
+  exact add_lt_add_of_lt_of_le_of_right_ne_bot (coe_ne_bot _) hb hA
+end
+
+/-
+theorem degree_lt_rank {F : Type*} [field F] {t : ℕ} : module.rank F (degree_lt F t) = t := by {rw (degree_lt_equiv' F t).dim_eq, exact dim_fin_fun _}
+
+theorem degree_lt_finrank {F : Type*} [field F] {t : ℕ} : finite_dimensional.finrank F (degree_lt F t) = t := finite_dimensional.finrank_eq_of_dim_eq degree_lt_rank
+-/
+
+end polynomial
+
+section restrict
+namespace linear_map
+variables {R : Type*} {R₂ : Type*} {M : Type*} {M₂ : Type*} [semiring R] [semiring R₂] 
+[add_comm_monoid M] [add_comm_monoid M₂] [module R M] [module R₂ M₂] {σ₁₂ : R →+* R₂}
+(f : M →ₛₗ[σ₁₂] M₂) {p₁ : submodule R M} {p₂ : submodule R₂ M₂} (hf : p₁ ≤ submodule.comap f p₂) 
+
+def restrict' : p₁ →ₛₗ[σ₁₂] p₂ := (f.dom_restrict _).cod_restrict _ (λ x, hf x.2)
+
+lemma restrict_apply' (x : p₁) : (f.restrict' hf) x = ⟨f x, hf x.2⟩ := rfl
+
+lemma restrict_eq_cod_restrict_dom_restrict' :
+  f.restrict' hf = (f.dom_restrict p₁).cod_restrict p₂ (λ x, hf x.2) := rfl
+
+lemma restrict_eq_dom_restrict_cod_restrict' (hf : ∀ x, x ∈ submodule.comap f p₂) :
+  f.restrict' (λ x _, hf x) = (f.cod_restrict p₂ hf).dom_restrict p₁ := rfl
+
+lemma ker_restrict' : (f.restrict' hf).ker = f.ker.comap p₁.subtype :=
+by {ext, simp only [restrict_apply', mem_ker, submodule.mk_eq_zero,
+                    submodule.mem_comap, submodule.coe_subtype]}
+
+lemma range_restrict' [ring_hom_surjective σ₁₂] : (f.restrict' hf).range = (p₁.map f).comap p₂.subtype :=
+begin
+  ext y, simp only [ restrict_apply', mem_range, submodule.mem_comap,
+                    submodule.coe_subtype, submodule.mem_map], split,
+    rintro ⟨⟨x, hx⟩, rfl⟩, exact ⟨x, hx, rfl⟩,
+    rintro ⟨x, ⟨hx, hy⟩⟩, refine ⟨⟨x, hx⟩, _⟩, simp_rw [submodule.coe_mk, hy, set_like.eta]
+end
+variables {p₁' : submodule R p₁} {p₂' : submodule R₂ p₂} 
+
+
+lemma map_restrict' [ring_hom_surjective σ₁₂] : p₁'.map (f.restrict' hf) = (p₁'.map (f.comp p₁.subtype)).comap p₂.subtype :=
+begin
+  ext y, simp [restrict_apply'], split,
+  rintro ⟨x, hx, rfl⟩, exact ⟨x, hx, rfl⟩,
+  rintro ⟨x, hx, hy⟩, refine ⟨x, hx, _⟩, simp_rw [hy, set_like.eta]
+end
+
+
+lemma comap_restrict' : p₂'.comap (f.restrict' hf) = (p₂'.map p₂.subtype).comap (f.comp p₁.subtype) :=
+begin
+  ext y, simp [restrict_apply'],
+end
+
+end linear_map
+end restrict
+
+section comap
+
+section monoid_monoid
+
+variables {R : Type*} {R₂ : Type*} {M : Type*} {M₂ : Type*} [semiring R] [semiring R₂]
+[add_comm_monoid M] [add_comm_monoid M₂] [module R M] [module R₂ M₂] {τ₁₂ : R →+* R₂}
+(f : M →ₛₗ[τ₁₂] M₂) {p : submodule R M} {q q' : submodule R₂ M₂} 
+open submodule
+
+namespace linear_map
+lemma ker_eq_comap : f.ker = comap f ⊥ := rfl
+
+lemma ker_le_comap {f : M →ₛₗ[τ₁₂] M₂} : f.ker ≤ comap f q := comap_mono bot_le
+
+variable [ring_hom_surjective τ₁₂] 
+
+lemma comap_range : comap f (f.range) = ⊤ := eq_top_iff'.mpr (λ _, ⟨_, rfl⟩)
+
+lemma comap_eq_comap_range_inf : comap f q = comap f (f.range ⊓ q) :=
+by rw [comap_inf, comap_range, top_inf_eq]
+
+lemma comap_le_comap_iff' : comap f q ≤ comap f q' ↔
+f.range ⊓ q ≤ q' := by rw [← map_le_iff_le_comap, map_comap_eq]
+
+lemma comap_le_ker_iff : comap f q ≤ f.ker ↔ f.range ⊓ q = ⊥ :=
+by rw [ker_eq_comap, comap_le_comap_iff', le_bot_iff]
+end linear_map
+
+open linear_map
+variable [ring_hom_surjective τ₁₂]
+
+lemma submodule.comap_eq_ker_iff : comap f q = f.ker ↔ f.range ⊓ q = ⊥ :=
+⟨ λ h, (comap_le_ker_iff _).mp (le_of_eq h),
+  λ h, le_antisymm ((comap_le_ker_iff _).mpr h) ker_le_comap⟩
+
+lemma submodule.map_ker : submodule.map f (f.ker) = ⊥ := (submodule.eq_bot_iff _).mpr
+(by simp only [ mem_map, mem_ker, forall_exists_index, and_imp,
+                forall_apply_eq_imp_iff₂, imp_self, forall_const])
+
+lemma submodule.map_eq_map_sup_ker : submodule.map f p = submodule.map f (p ⊔ f.ker) :=
+by rw [map_sup, submodule.map_ker, sup_bot_eq]
+
+
+end monoid_monoid
+section group_monoid
+open submodule
+variables {R : Type*} {R₂ : Type*} {M : Type*} {M₂ : Type*} [ring R] 
+[add_comm_group M] [add_comm_group M₂] [module R M] [module R M₂] 
+(f : M →ₗ[R] M₂) {p : submodule R M} {q : submodule R M₂}
+{p' : submodule R p} {q' : submodule R q} 
+(hf : p ≤ q.comap f) --Might not need hf?
+
+def submodule.quotient_ker_equiv_map : 
+(_ ⧸ (p ⊓ f.ker).comap p.subtype) ≃ₗ[R] p.map f := sorry
+-- And, consequently, rank p = rank p.map f + rank (p ⊓ f.ker).
+
+def submodule.quotient_range_equiv_quotient_comap :
+(_ ⧸ q.comap (f.range ⊔ q).subtype) ≃ₗ[R] M ⧸ q.comap f := sorry
+-- And, consequently, rank f.range ⊔ q + rank q.comap f = rank M + rank q, which 
+-- you can also read as: corank q = corank q.comap f + corank (f.range ⊔ q)
+
+-- We use a restricted version of f for submodules of the submodules.
+
+def submodule.quotient_ker_equiv_map' :
+(_ ⧸ (p' ⊓ f.ker.comap p.subtype).comap p'.subtype) ≃ₗ[R] p'.map (f.restrict' hf) := sorry
+
+def submodule.quotient_range_equiv_quotient_comap' :
+(_ ⧸ q'.comap ((p.map f).comap q.subtype ⊔ q').subtype) ≃ₗ[R] _ ⧸ q'.comap (f.restrict' hf) := sorry
+
+
+
+end group_monoid
+section cokernel
+
+
+
+variables {R : Type*} {R₂ : Type*} {M : Type*} {M₂ : Type*} [ring R] [ring R₂]
+[add_comm_group M] [add_comm_group M₂] [module R M] [module R₂ M₂] {τ₁₂ : R →+* R₂}
+(f : M →ₛₗ[τ₁₂] M₂) {p p' : submodule R M} [ring_hom_surjective τ₁₂]
+
+def linear_map.coker : module R₂ (M₂ ⧸ f.range) := submodule.quotient.module _
+noncomputable def corank := module.rank R₂ (M₂ ⧸ f.range)
+
+def linear_map.corange : module R (M ⧸ f.ker) := submodule.quotient.module _
+
+protected noncomputable def submodule.corank := module.rank R (M ⧸ p) 
+
+end cokernel
+
+section group
+variables {R : Type*} {R₂ : Type*} {M : Type*} {M₂ : Type*} [semiring R] [semiring R₂]
+[add_comm_group M] [add_comm_group M₂] [module R M] [module R₂ M₂] {τ₁₂ : R →+* R₂}
+(f : M →ₛₗ[τ₁₂] M₂) {p p' : submodule R M} [ring_hom_surjective τ₁₂]
+
+lemma range_le_map_iff : f.range ≤ submodule.map f p ↔ p ⊔ f.ker = ⊤ :=
+by rw [range_eq_map, linear_map.map_le_map_iff, top_le_iff]
+
+lemma range_eq_map_iff : f.range = submodule.map f p ↔ p ⊔ f.ker = ⊤ :=
+⟨ λ h, (range_le_map_iff _).mp (le_of_eq h),
+  λ h, le_antisymm ((range_le_map_iff _).mpr h) map_le_range⟩
+
+-- map_eq_top_iff is just a special case of this.
+
+-- comap_map_eq and comap_map_eq_self are in the wrong file (should be in basic).
+
+end group
+
+end comap
+end linear_map
+
+namespace submodule
+
+variables {R : Type*} {M : Type*} {M' : Type*} [semiring R]
+[add_comm_monoid M] [add_comm_monoid M'] [module R M] [module R M']
+(p : submodule R M) (q : submodule R M')
+
+def prod_equiv : p.prod q ≃ₗ[R] p × q :=
+{ map_add' := λ x y, rfl, map_smul' := λ x y, rfl, .. equiv.set.prod ↑p ↑q }
+
+-- On some level, this is probably a theorem about coranks and the dimension of comap. But I don't 
+-- understand that, so let's not worry about it. I suspect it can be generalised.
+open linear_map
+
+
+theorem comap_nontrivial {K : Type*} {V : Type*} [field K] [add_comm_group V] [module K V] {V₂ : Type*} [add_comm_group V₂] [module K V₂] 
+(f : V →ₗ[K] V₂) {q : submodule K V₂} (h : (module.rank K V₂) < (module.rank K q) + (module.rank K V) )
+: comap f q ≠ ⊥ :=
+begin
+  intro H, 
+  --submodule.disjoint_iff_comap_eq_bot
+  /-have range_inf_zero : disjoint f.range p,
+  { rw submodule.disjoint_iff_comap_eq_bot,
+    
+    simp_rw [submodule.eq_bot_iff, submodule.mem_comap],
+    intros _ ha,
+    apply H _ ha,
+    simp only [ mem_inf, mem_range, and_imp,
+                forall_exists_index, forall_apply_eq_imp_iff'],
+    intros _ ha,
+    rw [H _ ha, f.map_zero]
+  },-/
+  apply not_le_of_lt h,
+  have j := congr_arg ((+) (module.rank K ↥q)) (dim_range_add_dim_ker f),
+  rw ← add_assoc at j,
+  rw ← _root_.dim_sup_add_dim_inf_eq at j,
+  have jj := congr_arg (λ x, x + (module.rank K (comap f q))) j,
+  simp at jj,
+  clear j,
+  rw add_assoc at jj,
+  rw ← @_root_.dim_sup_add_dim_inf_eq _ V at jj,
+  rw [  ←finrank_range_of_inj (ker_zero), ← submodule.dim_sup_add_dim_inf_eq],
+  apply submodule.finrank_le,
+end
+
+end submodule
+
+
 -- Section 2 (Polynomials)
 /-
 Much of this section is straightforwardly in mathlib. Imports are given (though
@@ -288,55 +561,7 @@ end matrix
 namespace polynomial
 open linear_equiv matrix
 
-noncomputable def degree_lt_equiv' (R : Type*) [comm_ring R] (n : ℕ)
-: degree_lt R n ≃ₗ[R] (fin n → R) :=
-{ to_fun := λ p n, (↑p : R[X]).coeff n,
-  inv_fun := λ f, ⟨∑ i : fin n, monomial i (f i),
-    (degree_lt R n).sum_mem (λ i _, mem_degree_lt.mpr (lt_of_le_of_lt
-      (degree_monomial_le i (f i)) (with_bot.coe_lt_coe.mpr i.is_lt)))⟩,
-  map_add' := λ p q, by { ext, rw [submodule.coe_add, coeff_add], refl },
-  map_smul' := λ x p, by { ext, rw [submodule.coe_smul, coeff_smul], refl },
-  left_inv :=
-  begin
-    rintro ⟨p, hp⟩, ext1,
-    simp only [submodule.coe_mk],
-    by_cases hp0 : p = 0,
-    { subst hp0, simp only [coeff_zero, linear_map.map_zero, finset.sum_const_zero] },
-    rw [mem_degree_lt, degree_eq_nat_degree hp0, with_bot.coe_lt_coe] at hp,
-    conv_rhs { rw [p.as_sum_range' n hp, ← fin.sum_univ_eq_sum_range] },
-  end,
-  right_inv :=
-  begin
-    intro f, ext i,
-    simp only [finset_sum_coeff, submodule.coe_mk],
-    rw [finset.sum_eq_single i, coeff_monomial, if_pos rfl],
-    { rintro j - hji, rw [coeff_monomial, if_neg], rwa [← subtype.ext_iff] },
-    { intro h, exact (h (finset.mem_univ _)).elim }
-  end }
 
-theorem degree_lt_equiv_eq_iff {R : Type*} [comm_ring R] {n : ℕ} {p q : R[X]}
-(h₀ : p ∈ degree_lt R n) (h₁ : q ∈ degree_lt R n) : degree_lt_equiv' _ _ ⟨_, h₀⟩ = degree_lt_equiv' _ _ ⟨_, h₁⟩ ↔ p = q :=
-by { rw (linear_equiv.injective _).eq_iff, exact subtype.mk_eq_mk }
-
-theorem degree_lt_equiv_eq_zero_iff {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]}
-(h : p ∈ degree_lt R n) : degree_lt_equiv' _ _ ⟨_, h⟩ = 0 ↔ p = 0 :=
-by { rw linear_equiv.map_eq_zero_iff, apply submodule.mk_eq_zero, }
-
-theorem degree_lt_equiv_apply {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]}
-(h : p ∈ degree_lt R n) (i : fin n) : degree_lt_equiv' _ _ ⟨_, h⟩ i = p.coeff i := rfl
-
-theorem degree_lt_equiv_eval {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]}
-(h : p ∈ degree_lt R n) (x : R) :
-∑ i, degree_lt_equiv' _ _ ⟨_, h⟩ i * (x ^ (i : ℕ)) = p.eval x :=
-begin
-  simp_rw [degree_lt_equiv_apply h, eval_eq_sum],
-  exact sum_fin (λ e a, a * x ^ e) (λ i, zero_mul (x ^ i)) (mem_degree_lt.mp h)
-end
-
-theorem degree_lt_root {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]}
-(h : p ∈ degree_lt R n) (x : R) : p.is_root x ↔
-∑ i, degree_lt_equiv' _ _ ⟨_, h⟩ i * (x ^ (i : ℕ)) = 0
-:= by rw [is_root.def, degree_lt_equiv_eval h]
 
 theorem vandermonde_invertibility {R : Type*} [comm_ring R] [is_domain R] {n : ℕ}
 (α : fin n ↪ R) {p : R[X]} (h₀ : p ∈ degree_lt R n) (h₁ : ∀ j, p.is_root (α j)) : p = 0 :=
@@ -458,49 +683,37 @@ end
 end gdthree
 
 section gdfour
-open_locale classical polynomial
+open_locale classical polynomial 
 
-open polynomial
+open polynomial linear_map algebra
 
-def approximate_error {R : Type*} [comm_ring R] (A B : R[X]) : R[X] × R[X] →ₗ[R] R[X] := linear_map.coprod (algebra.lmul_right _ B) (algebra.lmul_right _ (-A))
+def approximant_error {R : Type*} [comm_ring R] (A B : R[X]) : R[X] × R[X] →ₗ[R] R[X] := 
+coprod (lmul_right _ B) (lmul_right _ (-A))
 
-def approximant_quotient {R : Type*} [comm_ring R] {a b A B : R[X]} {n : ℕ} (h₀ : A ∈ degree_lt R n.succ) (h₁ : B ∈ degree_lt R n) {t : ℕ} (h₀ : a ∈ degree_lt R t.succ) (h₁ : b ∈ degree_lt R t) : R[X] × R[X] →ₗ[R] R[X] ⧸ degree_lt R (n - t) := (degree_lt R (n - t)).mkq.comp (approximate_error A B)
+def approximant_quotient {R : Type*} [comm_ring R] {a b A B : R[X]}
+{n : ℕ} (hA : A ∈ degree_le R n) (hB : B ∈ degree_lt R n)
+{t : ℕ} (ha : a ∈ degree_le R t) (hb : b ∈ degree_lt R t) : 
+R[X] × R[X] →ₗ[R] R[X] ⧸ degree_lt R (n - t) := 
+(degree_lt R (n - t)).mkq.comp (approximant_error A B)
 
-lemma approximate_error_apply {R : Type*} [comm_ring R] {A B a b : R[X]} : approximate_error A B (a, b) = a*B - b*A :=
-by simpa only [approximate_error, linear_map.coprod_apply, algebra.lmul_right_apply, mul_neg]
+lemma approximant_error_apply {R : Type*} [comm_ring R] {A B a b : R[X]} : approximant_error A B (a, b) = a*B - b*A := by {simp only [approximant_error, coprod_apply, lmul_right_apply], ring }
 
-theorem add_lt_add_of_lt_of_le' {α : Type*} [preorder α] [has_add α] [covariant_class α α has_add.add has_le.le] [covariant_class α α (function.swap has_add.add) has_lt.lt] {a c : with_bot α} {b d : α} (h₁ : a < b) (h₂ : c ≤ d) :
-a + c < b + d :=
+theorem approximate_error_bounded_degree
+{R : Type*} [comm_ring R] [no_zero_divisors R] {A B : R[X]}
+{n : ℕ} (hA : A ∈ degree_le R n) (hB : B ∈ degree_lt R n) (t : ℕ) :
+∀ ab : R[X] × R[X], ab ∈ (degree_le R t).prod (degree_lt R t) →
+(approximant_error A B) ab ∈ degree_lt R (t + n) := 
 begin
-  rw ← with_bot.coe_add,
-  cases a; cases c; try {rw with_bot.none_eq_bot at *},
-  simp, apply with_bot.bot_lt_coe,
-  simp, apply with_bot.bot_lt_coe,
-  simp, apply with_bot.bot_lt_coe,
-  repeat {rw with_bot.some_eq_coe at *},
-  rw ← with_bot.coe_add,
-  norm_cast at *,
-  apply add_lt_add_of_lt_of_le h₁ h₂
+  simp only [ mem_degree_lt, mem_degree_le, approximant_error_apply,
+              submodule.mem_prod, and_imp, prod.forall] at *,
+  intros a b ha hb,
+  exact mul_sub_mul_degree_lt_add_of_degrees_le_lt_le_lt hA hB ha hb
 end
 
-theorem approximate_error_mem_degree_lt_of_degree_lt {R : Type*} [comm_ring R] [no_zero_divisors R] {a b A B : R[X]} {n : ℕ} (h₀ : A ∈ degree_le R n) (h₁ : B ∈ degree_lt R n) {t : ℕ} (h₂ : a ∈ degree_le R t) (h₃ : b ∈ degree_lt R t) : approximate_error A B (a, b) ∈ degree_lt R (n + t) := 
-begin
-  rw approximate_error_apply,
-  rw mem_degree_lt at *,
-  rw mem_degree_le at *,
-  have h : (a * B - b * A).degree ≤ max (a.degree + B.degree) (b.degree + A.degree),
-    exact le_trans (degree_sub_le _ _) (le_of_eq (by simp only [degree_mul])),
-  rw le_max_iff at h,
-  rw with_bot.coe_add,
-  cases h;
-  apply lt_of_le_of_lt h,
-  sorry,
-end
-
-
-
-theorem approximant_exists {R : Type*} [comm_ring R] {A B : R[X]} {n : ℕ} (h₀ : A.degree = n) (h₁ : B ∈ degree_lt R n) (t : ℕ) : ∃ a b : R[X], a ∈ degree_lt R t.succ ∧ b ∈ degree_lt R t ∧ a*B - b*A ∈ degree_lt R (n - t)
-:= sorry
+def approximant_error_restricted {R : Type*} [comm_ring R] [no_zero_divisors R] {A B : R[X]}
+{n : ℕ} (hA : A ∈ degree_le R n) (hB : B ∈ degree_lt R n) (t : ℕ) :
+(degree_le R t).prod (degree_lt R t) →ₗ[R] degree_lt R (t + n) :=
+linear_map.restrict' _ (approximate_error_bounded_degree hA hB _)
 
 
 end gdfour
