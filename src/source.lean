@@ -10,52 +10,39 @@ import linear_algebra.lagrange
 import algebra.order.monoid
 import data.matrix.rank
 import linear_algebra.finite_dimensional
-import .with_bot
+import to_mathlib.with_bot_top
 
 namespace polynomial
 open_locale polynomial big_operators
+
 open with_bot
 
-noncomputable def degree_lt_equiv' (R : Type*) [comm_ring R] (n : ℕ)
-: degree_lt R n ≃ₗ[R] (fin n → R) :=
-{ to_fun := λ p n, (↑p : R[X]).coeff n,
-  inv_fun := λ f, ⟨∑ i : fin n, monomial i (f i),
-    (degree_lt R n).sum_mem (λ i _, mem_degree_lt.mpr (lt_of_le_of_lt
-      (degree_monomial_le i (f i)) (with_bot.coe_lt_coe.mpr i.is_lt)))⟩,
-  map_add' := λ p q, by { ext, rw [submodule.coe_add, coeff_add], refl },
-  map_smul' := λ x p, by { ext, rw [submodule.coe_smul, coeff_smul], refl },
-  left_inv :=
-  begin
-    rintro ⟨p, hp⟩, ext1,
-    simp only [submodule.coe_mk],
-    by_cases hp0 : p = 0,
-    { subst hp0, simp only [coeff_zero, linear_map.map_zero, finset.sum_const_zero] },
-    rw [mem_degree_lt, degree_eq_nat_degree hp0, with_bot.coe_lt_coe] at hp,
-    conv_rhs { rw [p.as_sum_range' n hp, ← fin.sum_univ_eq_sum_range] },
-  end,
-  right_inv :=
-  begin
-    intro f, ext i,
-    simp only [finset_sum_coeff, submodule.coe_mk],
-    rw [finset.sum_eq_single i, coeff_monomial, if_pos rfl],
-    { rintro j - hji, rw [coeff_monomial, if_neg], rwa [← subtype.ext_iff] },
-    { intro h, exact (h (finset.mem_univ _)).elim }
-  end }
+noncomputable def to_tuple {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]} (h : p ∈ degree_lt R n) :
+fin n → R := degree_lt_equiv _ _ ⟨_, h⟩
 
-theorem degree_lt_equiv_eq_iff {R : Type*} [comm_ring R] {n : ℕ} {p q : R[X]}
-(h₀ : p ∈ degree_lt R n) (h₁ : q ∈ degree_lt R n) : degree_lt_equiv' _ _ ⟨_, h₀⟩ = degree_lt_equiv' _ _ ⟨_, h₁⟩ ↔ p = q :=
-by { rw (linear_equiv.injective _).eq_iff, exact subtype.mk_eq_mk }
+lemma to_tuple_eq {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]} (h : p ∈ degree_lt R n) :
+to_tuple h = (degree_lt_equiv _ _) ⟨_, h⟩ := rfl
+
+lemma to_tuple_apply {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]}
+(h : p ∈ degree_lt R n) (i : fin n) : to_tuple h i = p.coeff i := rfl
 
 theorem degree_lt_equiv_eq_zero_iff {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]}
-(h : p ∈ degree_lt R n) : degree_lt_equiv' _ _ ⟨_, h⟩ = 0 ↔ p = 0 :=
-by { rw linear_equiv.map_eq_zero_iff, apply submodule.mk_eq_zero, }
+(h : p ∈ degree_lt R n) : to_tuple h = 0 ↔ p = 0 :=
+by { simp only [to_tuple_eq, linear_equiv.map_eq_zero_iff, submodule.mk_eq_zero] }
+
+
+theorem degree_lt_equiv_eq_iff {R : Type*} [comm_ring R] {n : ℕ} {p q : R[X]}
+(h₀ : p ∈ degree_lt R n) (h₁ : q ∈ degree_lt R n) : to_tuple h₀ = to_tuple h₁ ↔ p = q :=
+by { conv begin congr, rw ←sub_eq_zero, skip, rw ←sub_eq_zero end, simp[to_tuple_eq], rw function.funext_iff, }
+
+
 
 theorem degree_lt_equiv_apply {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]}
-(h : p ∈ degree_lt R n) (i : fin n) : degree_lt_equiv' _ _ ⟨_, h⟩ i = p.coeff i := rfl
+(h : p ∈ degree_lt R n) (i : fin n) : degree_lt_equiv _ _ ⟨_, h⟩ i = p.coeff i := rfl
 
 theorem degree_lt_equiv_eval {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]}
 (h : p ∈ degree_lt R n) (x : R) :
-∑ i, degree_lt_equiv' _ _ ⟨_, h⟩ i * (x ^ (i : ℕ)) = p.eval x :=
+∑ i, degree_lt_equiv _ _ ⟨_, h⟩ i * (x ^ (i : ℕ)) = p.eval x :=
 begin
   simp_rw [degree_lt_equiv_apply h, eval_eq_sum],
   exact sum_fin (λ e a, a * x ^ e) (λ i, zero_mul (x ^ i)) (mem_degree_lt.mp h)
@@ -63,19 +50,11 @@ end
 
 theorem degree_lt_root {R : Type*} [comm_ring R] {n : ℕ} {p : R[X]}
 (h : p ∈ degree_lt R n) (x : R) : p.is_root x ↔
-∑ i, degree_lt_equiv' _ _ ⟨_, h⟩ i * (x ^ (i : ℕ)) = 0
+∑ i, degree_lt_equiv _ _ ⟨_, h⟩ i * (x ^ (i : ℕ)) = 0
 := by rw [is_root.def, degree_lt_equiv_eval h]
 
-theorem mul_sub_mul_degree_lt_add_of_degrees_le_lt_le_lt {R : Type*} [comm_ring R] [no_zero_divisors R] {a b A B : R[X]} {n t : ℕ}
-(hA : A.degree ≤ n) (hB : B.degree < n) (ha : a.degree ≤ t) (hb : b.degree < t)
-: (a*B - b*A).degree < t + n := 
-begin
-  have h : (a * B - b * A).degree ≤ max (a.degree + B.degree) (b.degree + A.degree),
-    exact le_trans (degree_sub_le _ _) (le_of_eq (by simp only [degree_mul])),
-  rw [le_max_iff] at h, cases h; apply lt_of_le_of_lt h,
-  exact add_lt_add_of_le_of_lt_of_right_ne_bot (coe_ne_bot _) ha hB,
-  exact add_lt_add_of_lt_of_le_of_right_ne_bot (coe_ne_bot _) hb hA
-end
+
+
 
 /-
 theorem degree_lt_rank {F : Type*} [field F] {t : ℕ} : module.rank F (degree_lt F t) = t := by {rw (degree_lt_equiv' F t).dim_eq, exact dim_fin_fun _}
@@ -85,51 +64,25 @@ theorem degree_lt_finrank {F : Type*} [field F] {t : ℕ} : finite_dimensional.f
 
 end polynomial
 
-section restrict
-namespace linear_map
-variables {R : Type*} {R₂ : Type*} {M : Type*} {M₂ : Type*} [semiring R] [semiring R₂] 
-[add_comm_monoid M] [add_comm_monoid M₂] [module R M] [module R₂ M₂] {σ₁₂ : R →+* R₂}
-(f : M →ₛₗ[σ₁₂] M₂) {p₁ : submodule R M} {p₂ : submodule R₂ M₂} (hf : p₁ ≤ submodule.comap f p₂) 
+section basic_submodule
+variables {R : Type*} {R₂ : Type*} {M : Type*} {M₂ : Type*} [semiring R] [semiring R₂]
+[add_comm_monoid M] [add_comm_monoid M₂] [module R M] {p : submodule R M}
+namespace submodule
 
-def restrict' : p₁ →ₛₗ[σ₁₂] p₂ := (f.dom_restrict _).cod_restrict _ (λ x, hf x.2)
+def comap_subtype_equiv_inf_right (p' : submodule R M) : comap p.subtype p' ≃ₗ[R] (p ⊓ p' : submodule R M) :=
+{ to_fun := λ ⟨⟨_, hx⟩, hx'⟩, ⟨_, hx, hx'⟩,
+  inv_fun := λ ⟨_, hx, hx'⟩, ⟨⟨_, hx⟩, hx'⟩,
+  left_inv := λ ⟨⟨_, _⟩, _⟩, rfl,
+  right_inv := λ ⟨_, _, _⟩, rfl,
+  map_add' := λ ⟨⟨_, _⟩, _⟩ ⟨⟨_, _⟩, _⟩, rfl,
+  map_smul' := λ _ ⟨⟨_, _⟩, _⟩, rfl
+}
 
-lemma restrict_apply' (x : p₁) : (f.restrict' hf) x = ⟨f x, hf x.2⟩ := rfl
+def comap_subtype_equiv_inf_left (p' : submodule R M) : comap p.subtype p' ≃ₗ[R] (p' ⊓ p : submodule R M)
+:= by {rw inf_comm, exact comap_subtype_equiv_inf_right _}
 
-lemma restrict_eq_cod_restrict_dom_restrict' :
-  f.restrict' hf = (f.dom_restrict p₁).cod_restrict p₂ (λ x, hf x.2) := rfl
-
-lemma restrict_eq_dom_restrict_cod_restrict' (hf : ∀ x, x ∈ submodule.comap f p₂) :
-  f.restrict' (λ x _, hf x) = (f.cod_restrict p₂ hf).dom_restrict p₁ := rfl
-
-lemma ker_restrict' : (f.restrict' hf).ker = f.ker.comap p₁.subtype :=
-by {ext, simp only [restrict_apply', mem_ker, submodule.mk_eq_zero,
-                    submodule.mem_comap, submodule.coe_subtype]}
-
-lemma range_restrict' [ring_hom_surjective σ₁₂] : (f.restrict' hf).range = (p₁.map f).comap p₂.subtype :=
-begin
-  ext y, simp only [ restrict_apply', mem_range, submodule.mem_comap,
-                    submodule.coe_subtype, submodule.mem_map], split,
-    rintro ⟨⟨x, hx⟩, rfl⟩, exact ⟨x, hx, rfl⟩,
-    rintro ⟨x, ⟨hx, hy⟩⟩, refine ⟨⟨x, hx⟩, _⟩, simp_rw [submodule.coe_mk, hy, set_like.eta]
-end
-variables {p₁' : submodule R p₁} {p₂' : submodule R₂ p₂} 
-
-
-lemma map_restrict' [ring_hom_surjective σ₁₂] : p₁'.map (f.restrict' hf) = (p₁'.map (f.comp p₁.subtype)).comap p₂.subtype :=
-begin
-  ext y, simp [restrict_apply'], split,
-  rintro ⟨x, hx, rfl⟩, exact ⟨x, hx, rfl⟩,
-  rintro ⟨x, hx, hy⟩, refine ⟨x, hx, _⟩, simp_rw [hy, set_like.eta]
-end
-
-
-lemma comap_restrict' : p₂'.comap (f.restrict' hf) = (p₂'.map p₂.subtype).comap (f.comp p₁.subtype) :=
-begin
-  ext y, simp [restrict_apply'],
-end
-
-end linear_map
-end restrict
+end submodule
+end basic_submodule
 
 section comap
 
@@ -137,7 +90,7 @@ section monoid_monoid
 
 variables {R : Type*} {R₂ : Type*} {M : Type*} {M₂ : Type*} [semiring R] [semiring R₂]
 [add_comm_monoid M] [add_comm_monoid M₂] [module R M] [module R₂ M₂] {τ₁₂ : R →+* R₂}
-(f : M →ₛₗ[τ₁₂] M₂) {p : submodule R M} {q q' : submodule R₂ M₂} 
+(f : M →ₛₗ[τ₁₂] M₂) {p p' : submodule R M} {q q' : submodule R₂ M₂} 
 open submodule
 
 namespace linear_map
@@ -174,38 +127,10 @@ lemma submodule.map_eq_map_sup_ker : submodule.map f p = submodule.map f (p ⊔ 
 by rw [map_sup, submodule.map_ker, sup_bot_eq]
 
 
+
 end monoid_monoid
-section group_monoid
-open submodule
-variables {R : Type*} {R₂ : Type*} {M : Type*} {M₂ : Type*} [ring R] 
-[add_comm_group M] [add_comm_group M₂] [module R M] [module R M₂] 
-(f : M →ₗ[R] M₂) {p : submodule R M} {q : submodule R M₂}
-{p' : submodule R p} {q' : submodule R q} 
-(hf : p ≤ q.comap f) --Might not need hf?
 
-def submodule.quotient_ker_equiv_map : 
-(_ ⧸ (p ⊓ f.ker).comap p.subtype) ≃ₗ[R] p.map f := sorry
--- And, consequently, rank p = rank p.map f + rank (p ⊓ f.ker).
-
-def submodule.quotient_range_equiv_quotient_comap :
-(_ ⧸ q.comap (f.range ⊔ q).subtype) ≃ₗ[R] M ⧸ q.comap f := sorry
--- And, consequently, rank f.range ⊔ q + rank q.comap f = rank M + rank q, which 
--- you can also read as: corank q = corank q.comap f + corank (f.range ⊔ q)
-
--- We use a restricted version of f for submodules of the submodules.
-
-def submodule.quotient_ker_equiv_map' :
-(_ ⧸ (p' ⊓ f.ker.comap p.subtype).comap p'.subtype) ≃ₗ[R] p'.map (f.restrict' hf) := sorry
-
-def submodule.quotient_range_equiv_quotient_comap' :
-(_ ⧸ q'.comap ((p.map f).comap q.subtype ⊔ q').subtype) ≃ₗ[R] _ ⧸ q'.comap (f.restrict' hf) := sorry
-
-
-
-end group_monoid
 section cokernel
-
-
 
 variables {R : Type*} {R₂ : Type*} {M : Type*} {M₂ : Type*} [ring R] [ring R₂]
 [add_comm_group M] [add_comm_group M₂] [module R M] [module R₂ M₂] {τ₁₂ : R →+* R₂}
@@ -221,6 +146,7 @@ protected noncomputable def submodule.corank := module.rank R (M ⧸ p)
 end cokernel
 
 section group
+open linear_map
 variables {R : Type*} {R₂ : Type*} {M : Type*} {M₂ : Type*} [semiring R] [semiring R₂]
 [add_comm_group M] [add_comm_group M₂] [module R M] [module R₂ M₂] {τ₁₂ : R →+* R₂}
 (f : M →ₛₗ[τ₁₂] M₂) {p p' : submodule R M} [ring_hom_surjective τ₁₂]
@@ -239,7 +165,114 @@ lemma range_eq_map_iff : f.range = submodule.map f p ↔ p ⊔ f.ker = ⊤ :=
 end group
 
 end comap
+section restrict
+
+namespace linear_map
+open submodule
+variables {R : Type*} {R₂ : Type*} {M : Type*} {M₂ : Type*}
+[semiring R] [semiring R₂] [add_comm_monoid M] [add_comm_monoid M₂]
+[module R M] [module R₂ M₂] {σ₁₂ : R →+* R₂} (f : M →ₛₗ[σ₁₂] M₂)
+(p : submodule R M) (q : submodule R₂ M₂)
+
+lemma le_comap_top {f : M →ₛₗ[σ₁₂] M₂} {p}
+: p ≤ comap f ⊤ := by simp only [comap_top, le_top]
+
+lemma le_comap_top' {f : M →ₛₗ[σ₁₂] M₂} {q} (hq : ∀ x, f x ∈ q)
+: ⊤ ≤ comap f q := λ _ _, hq _
+
+def restrict' (p) {q} (hq : p ≤ submodule.comap f q)
+: p →ₛₗ[σ₁₂] q := { 
+  to_fun := λ x, ⟨f x, hq x.2⟩,
+  map_add' := by { simp_rw [  subtype.ext_iff, submodule.coe_add,
+                              map_add, submodule.coe_mk], exact λ _ _, rfl},
+  map_smul' := by { simp_rw [ subtype.ext_iff, submodule.coe_smul,
+                              map_smulₛₗ, submodule.coe_mk], exact λ _ _, rfl} }
+
+lemma restrict'_apply (hq : p ≤ submodule.comap f q) (x) : (f.restrict' p hq x : M₂) = f x := rfl
+
+def dom_restrict'' (f : M →ₛₗ[σ₁₂] M₂) (p : submodule R M) : p →ₛₗ[σ₁₂] M₂ := 
+top_equiv.to_linear_map.comp (f.restrict' p le_comap_top)
+
+lemma dom_restrict''_apply (f : M →ₛₗ[σ₁₂] M₂) {p : submodule R M} (x)
+: f.dom_restrict'' p x = f x := restrict'_apply _ _ _ le_comap_top _
+
+lemma dom_restrict''_apply_mem_of_compatible_map (hq : p ≤ submodule.comap f q) : ∀ (x : p), (f.dom_restrict'' p) x ∈ q := λ _, hq (coe_mem _)
+
+def cod_restrict' (f : M →ₛₗ[σ₁₂] M₂) {q : submodule R₂ M₂} (hq : ∀ x, f x ∈ q)
+: M →ₛₗ[σ₁₂] q := (f.restrict' ⊤ (λ x _, hq x)).comp top_equiv.symm.to_linear_map
+
+lemma cod_restrict'_apply (f : M →ₛₗ[σ₁₂] M₂) {q : submodule R₂ M₂}
+(hq : ∀ x, f x ∈ q) (x)
+: (f.cod_restrict' hq x : M₂) = f x := restrict'_apply _ _ _ _ _
+
+lemma restrict'_eq_cod_restrict_dom_restrict' (hq : p ≤ submodule.comap f q) :
+  f.restrict' p hq = (f.dom_restrict'' p).cod_restrict' 
+  (dom_restrict''_apply_mem_of_compatible_map _ _ _ hq) := rfl
+
+lemma restrict'_eq_dom_restrict_cod_restrict' (hq : ∀ x, f x ∈ q) :
+  f.restrict' p hq =
+  (f.cod_restrict' hq).dom_restrict'' p := rfl
+
+variables {p' : submodule R p} {q' : submodule R₂ q}
+
+lemma map_restrict' [ring_hom_surjective σ₁₂]
+: p'.map (f.restrict' hf) = (p'.map (f.comp p.subtype)).comap q.subtype :=
+linear_map.map_cod_restrict _ _ _ _
+
+-- p'.map (f.restrict' hf) = ((p'.map p.subtype).map f) ⊓ q
+lemma comap_restrict'
+: q'.comap (f.restrict' hf) = (q'.map q.subtype).comap (f.comp p.subtype)
+:= linear_map.comap_cod_restrict _ _ _ _
+
+lemma ker_restrict' : (f.restrict' hf).ker = f.ker.comap p.subtype :=
+by rw [ linear_map.ker_eq_comap, linear_map.ker_eq_comap,
+        comap_restrict', submodule.comap_comp, submodule.map_bot]
+
+
+lemma range_restrict' [ring_hom_surjective σ₁₂] :
+(f.restrict' hf).range = (p.map f).comap q.subtype :=
+by rw [linear_map.range_eq_map, map_restrict', submodule.map_comp, submodule.map_subtype_top]
+variable [ring_hom_surjective σ₁₂] 
+
+#check ((f.restrict' hf).range : submodule R₂ q)
+
+def range_restrict'_equiv [ring_hom_surjective σ₁₂] :
+((f.restrict' hf).range : submodule R₂ q) ≃ₗ[R] (submodule.map f p : submodule R₂ M₂) := sorry
+
 end linear_map
+end restrict
+
+section group_monoid
+open  submodule
+variables {R : Type*} {R₂ : Type*} {M : Type*} {M₂ : Type*} [ring R] 
+[add_comm_group M] [add_comm_group M₂] [module R M] [module R M₂] 
+(f : M →ₗ[R] M₂) {p : submodule R M} {q : submodule R M₂}
+{p' : submodule R p} {q' : submodule R q} 
+
+def submodule.quotient_ker_equiv_map : 
+(_ ⧸ (p ⊓ f.ker).comap p.subtype) ≃ₗ[R] p.map f :=
+begin
+  rw [submodule.comap_inf, submodule.comap_subtype_self, top_inf_eq],
+  rw ← f.ker_restrict' (le_trans le_top (le_of_eq (submodule.comap_top _).symm)),
+  sorry
+end
+-- And, consequently, rank p = rank p.map f + rank (p ⊓ f.ker).
+
+def submodule.quotient_range_equiv_quotient_comap :
+(_ ⧸ q.comap (f.range ⊔ q).subtype) ≃ₗ[R] M ⧸ q.comap f := 
+(linear_map.quotient_inf_equiv_sup_quotient _ _).symm ≪≫ₗ _
+-- And, consequently, rank f.range ⊔ q + rank q.comap f = rank M + rank q, which 
+-- you can also read as: corank q = corank q.comap f + corank (f.range ⊔ q)
+
+-- We use a restricted version of f for submodules of the submodules.
+
+def submodule.quotient_ker_equiv_map' (hf : p ≤ q.comap f) :
+(_ ⧸ (p' ⊓ f.ker.comap p.subtype).comap p'.subtype) ≃ₗ[R] p'.map (f.restrict' hf) := sorry
+
+def submodule.quotient_range_equiv_quotient_comap' (hf : p ≤ q.comap f) :
+(_ ⧸ q'.comap ((p.map f).comap q.subtype ⊔ q').subtype) ≃ₗ[R] _ ⧸ q'.comap (f.restrict' hf) := sorry
+
+end group_monoid
 
 namespace submodule
 
@@ -249,10 +282,13 @@ variables {R : Type*} {M : Type*} {M' : Type*} [semiring R]
 
 def prod_equiv : p.prod q ≃ₗ[R] p × q :=
 { map_add' := λ x y, rfl, map_smul' := λ x y, rfl, .. equiv.set.prod ↑p ↑q }
-
+end submodule
 -- On some level, this is probably a theorem about coranks and the dimension of comap. But I don't 
 -- understand that, so let's not worry about it. I suspect it can be generalised.
-open linear_map
+
+
+section my_thing
+open submodule linear_map
 
 
 theorem comap_nontrivial {K : Type*} {V : Type*} [field K] [add_comm_group V] [module K V] {V₂ : Type*} [add_comm_group V₂] [module K V₂] 
@@ -285,7 +321,8 @@ begin
   apply submodule.finrank_le,
 end
 
-end submodule
+end my_thing
+
 
 
 -- Section 2 (Polynomials)
@@ -564,7 +601,7 @@ open linear_equiv matrix
 
 
 theorem vandermonde_invertibility {R : Type*} [comm_ring R] [is_domain R] {n : ℕ}
-(α : fin n ↪ R) {p : R[X]} (h₀ : p ∈ degree_lt R n) (h₁ : ∀ j, p.is_root (α j)) : p = 0 :=
+(α : fin n ↪ R) (p : degree_lt R n) (h₁ : ∀ j, (p : R[X]).is_root (α j)) : p = 0 :=
 begin
   simp_rw degree_lt_root h₀ at h₁,
   exact (degree_lt_equiv_eq_zero_iff h₀).mp (vandermonde_invertibility h₁)
@@ -592,7 +629,7 @@ be too difficult.
 import data.derivative
 -/
 
-theorem bernoulli_rule {R : Type*} [comm_ring R]  {p q : R[X]} {x : R} (h : p.is_root x) : (p*q).derivative.eval x = p.derivative.eval x * q.eval x :=
+theorem bernoulli_rule {R : Type*} [comm_ring R] {p q : R[X]} {x : R} (h : p.is_root x) : (p*q).derivative.eval x = p.derivative.eval x * q.eval x :=
 begin
   rw is_root.def at h,
   simp only [is_root.def, h, derivative_mul, eval_add, eval_mul, zero_mul, add_zero]
@@ -643,41 +680,69 @@ end polynomial
 section gdthree
 open_locale polynomial classical big_operators
 
-
-
 noncomputable theory
 
-open polynomial finset
+open polynomial finset lagrange
 
 universes u v
+variables {F : Type u} [field F] (s : finset F)
 
-def nodal {F : Type u} [field F] (s : finset F) : F[X] := ∏ y in s, (X - C y)
+def nodal : F[X] := ∏ y in s, (X - C y)
 
-lemma nodal_eq_remove {F : Type u} [field F] {s : finset F} {x : F} (hx : x ∈ s) : nodal s = (X - C x) * (∏ y in s.erase x, (X - C y)) := by {rw mul_prod_erase _ _ hx, refl}
+lemma nodal_eq_remove {x : F} (hx : x ∈ s) : nodal s = (X - C x) * (∏ y in s.erase x, (X - C y)) := by {rw mul_prod_erase _ _ hx, refl}
 
-lemma nodal_derive_eval_node_eq {F : Type u} [field F] {s : finset F} {x : F} (hx : x ∈ s) : eval x (nodal s).derivative = ∏ y in (s.erase x), (x - y) := 
+lemma nodal_derive_eval_node_eq {x : F} (hx : x ∈ s) : eval x (nodal s).derivative = ∏ y in (s.erase x), (x - y) := 
 begin
-  rw [nodal_eq_remove hx, bernoulli_rule (root_X_sub_C.mpr rfl)],
+  rw [nodal_eq_remove _ hx, bernoulli_rule (root_X_sub_C.mpr rfl)],
   simp_rw [eval_prod, derivative_sub, derivative_X, derivative_C, sub_zero, eval_one, one_mul, eval_sub, eval_X, eval_C]
 end
 
-lemma nodal_div_eq {F : Type u} [field F] {s : finset F} {x : F} (hx : x ∈ s) :
+lemma nodal_div_eq {x : F} (hx : x ∈ s) :
 nodal s / (X - C x) = (∏ y in s.erase x, (X - C y)) := 
 begin
-  rw [nodal_eq_remove hx, euclidean_domain.mul_div_cancel_left],
+  rw [nodal_eq_remove _ hx, euclidean_domain.mul_div_cancel_left],
   apply X_sub_C_ne_zero,
 end
 
-lemma lagrange.basis_eq_nodal_div_eval_deriv_mul_linear {F : Type u} [field F] {s : finset F} {x : F} (hx : x ∈ s) : lagrange.basis s x = C (eval x (nodal s).derivative)⁻¹ * (nodal s / (X - C x))  :=
+lemma basis_eq_nodal_div_eval_deriv_mul_linear {x : F} (hx : x ∈ s) : basis s x = C (eval x (nodal s).derivative)⁻¹ * (nodal s / (X - C x))  :=
 begin
-  unfold lagrange.basis,
-  rw [nodal_div_eq hx, nodal_derive_eval_node_eq hx, prod_mul_distrib, ← prod_inv_distrib', map_prod],
+  unfold basis,
+  rw [nodal_div_eq _ hx, nodal_derive_eval_node_eq _ hx, prod_mul_distrib, ← prod_inv_distrib', map_prod],
 end
 
-lemma interpolate_eq_derivative_interpolate {F : Type u} [field F] (s : finset F) (f : F → F) : lagrange.interpolate s f = ∑ x in s, C (f x * (eval x (nodal s).derivative)⁻¹) * (nodal s / (X - C x)) :=
+lemma interpolate_eq_derivative_interpolate (f : F → F) : interpolate s f = ∑ x in s, C (f x * (eval x (nodal s).derivative)⁻¹) * (nodal s / (X - C x)) :=
 begin
   apply sum_congr rfl, intros _ hx,
-  rw [C.map_mul, lagrange.basis_eq_nodal_div_eval_deriv_mul_linear hx, mul_assoc]
+  rw [C.map_mul, basis_eq_nodal_div_eval_deriv_mul_linear _ hx, mul_assoc]
+end
+
+/-- Lagrange interpolation: given a finset `s` and a function `f : F → F`,
+`interpolate s f` is the unique polynomial of degree `< s.card`
+that takes value `f x` on all `x` in `s`. -/
+def interpolate' (r : s → F) : F[X] :=
+∑ x : s, C (r x) * basis s x
+
+lemma blahj (r : s → F) {f : F[X]} : f = interpolate' s r ↔ (f.degree < s.card) ∧ (∀ x : s, eval x.1 f = r x) :=
+begin
+  split, 
+  { intros h, rw h, split,
+  { 
+    simp_rw interpolate',
+    refine lt_of_le_of_lt (polynomial.degree_sum_le _ _) ((finset.sup_lt_iff (with_bot.bot_lt_coe s.card)).mpr _),
+    intros _ _,
+    --calc (C (r b) * basis s b).degree ,
+    --     ≤ (C (r b)).degree + (basis s b).degree : degree_mul_le _ _
+    rw polynomial.degree_mul,
+    rw ← zero_add s.card, rw with_bot.coe_add,
+    apply with_bot.add_lt_add_of_le_of_lt_of_right_ne_bot (with_bot.coe_ne_bot), rotate,
+    apply with_bot.add_zero_class,
+    refine submodule.sum_mem _ _, simp only [univ_eq_attach, mem_attach, forall_true_left],
+  },
+  {
+
+  }
+
+  }
 end
 
 end gdthree
@@ -698,6 +763,17 @@ R[X] × R[X] →ₗ[R] R[X] ⧸ degree_lt R (n - t) :=
 
 lemma approximant_error_apply {R : Type*} [comm_ring R] {A B a b : R[X]} : approximant_error A B (a, b) = a*B - b*A := by {simp only [approximant_error, coprod_apply, lmul_right_apply], ring }
 
+lemma mul_sub_mul_degree_lt_add_of_degrees_le_lt_le_lt {R : Type*} [comm_ring R] [no_zero_divisors R] {a b A B : R[X]} {n t : ℕ}
+(hA : A.degree ≤ n) (hB : B.degree < n) (ha : a.degree ≤ t) (hb : b.degree < t)
+: (a*B - b*A).degree < t + n := 
+begin
+  have h : (a * B - b * A).degree ≤ max (a.degree + B.degree) (b.degree + A.degree),
+    exact le_trans (degree_sub_le _ _) (le_of_eq (by simp only [degree_mul])),
+  rw [le_max_iff] at h, cases h; apply lt_of_le_of_lt h,
+  exact add_lt_add_of_le_of_lt_of_right_ne_bot (coe_ne_bot) ha hB,
+  exact add_lt_add_of_lt_of_le_of_right_ne_bot (coe_ne_bot) hb hA
+end
+
 theorem approximate_error_bounded_degree
 {R : Type*} [comm_ring R] [no_zero_divisors R] {A B : R[X]}
 {n : ℕ} (hA : A ∈ degree_le R n) (hB : B ∈ degree_lt R n) (t : ℕ) :
@@ -714,6 +790,5 @@ def approximant_error_restricted {R : Type*} [comm_ring R] [no_zero_divisors R] 
 {n : ℕ} (hA : A ∈ degree_le R n) (hB : B ∈ degree_lt R n) (t : ℕ) :
 (degree_le R t).prod (degree_lt R t) →ₗ[R] degree_lt R (t + n) :=
 linear_map.restrict' _ (approximate_error_bounded_degree hA hB _)
-
 
 end gdfour
