@@ -1,5 +1,6 @@
 import tactic.basic
 import algebra.order.monoid
+import order.succ_pred.basic
 open function
 
 universe u
@@ -59,25 +60,25 @@ theorem add_lt_add_of_lt_of_lt_cov_swap_lt [has_add α] [preorder α]
 calc  a + c < b + c : with_top.add_lt_add_right (ne_top_of_lt hcd) hab
       ...   ≤ b + d : add_le_add_left hcd.le b
 
-theorem add_lt_add_of_le_of_lt_of_left_ne_bot [has_add α] [preorder α]
+theorem add_lt_add_of_le_of_lt_of_left_ne_top [has_add α] [preorder α]
 [covariant_class α α (+) (<)] [covariant_class α α (swap (+)) (≤)]
 (ha : a ≠ ⊤) (hab : a ≤ b) (hcd : c < d) : a + c < b + d :=
 calc  a + c < a + d : with_top.add_lt_add_left ha hcd
       ...   ≤ b + d : add_le_add_right hab _
 
-theorem add_lt_add_of_le_of_lt_of_right_ne_bot [has_add α] [preorder α]
+theorem add_lt_add_of_le_of_lt_of_right_ne_top [has_add α] [preorder α]
 [covariant_class α α (+) (<)] [covariant_class α α (swap (+)) (≤)]
 (hb : b ≠ ⊤) (hab : a ≤ b) (hcd : c < d) : a + c < b + d :=
 calc  a + c ≤ b + c : add_le_add_right hab _
       ...   < b + d : with_top.add_lt_add_left hb hcd
 
-theorem add_lt_add_of_lt_of_le_of_left_ne_bot [has_add α] [preorder α]
+theorem add_lt_add_of_lt_of_le_of_left_ne_top [has_add α] [preorder α]
 [covariant_class α α (+) (≤)] [covariant_class α α (swap (+)) (<)]
 (hc : c ≠ ⊤) (hab : a < b) (hcd : c ≤ d) : a + c < b + d :=
 calc  a + c < b + c : with_top.add_lt_add_right hc hab
       ...   ≤ b + d : add_le_add_left hcd _
 
-theorem add_lt_add_of_lt_of_le_of_right_ne_bot [has_add α] [preorder α]
+theorem add_lt_add_of_lt_of_le_of_right_ne_top [has_add α] [preorder α]
 [covariant_class α α (+) (≤)] [covariant_class α α (swap (+)) (<)]
 (hd : d ≠ ⊤) (hab : a < b) (hcd : c ≤ d) : a + c < b + d :=
 calc  a + c ≤ a + d : add_le_add_left hcd _
@@ -130,21 +131,21 @@ theorem add_lt_add_of_lt_of_lt_cov_swap_lt [has_add α] [preorder α]
 theorem add_lt_add_of_le_of_lt_of_left_ne_bot [has_add α] [preorder α]
 [covariant_class α α (+) (<)] [covariant_class α α (swap (+)) (≤)]
 (ha : a ≠ ⊥) (hab : a ≤ b) (hcd : c < d) : a + c < b + d :=
-@with_top.add_lt_add_of_le_of_lt_of_right_ne_bot (order_dual α) _ _ _ _ _ _ _ _ ha hab hcd
+@with_top.add_lt_add_of_le_of_lt_of_right_ne_top (order_dual α) _ _ _ _ _ _ _ _ ha hab hcd
 
 theorem add_lt_add_of_le_of_lt_of_right_ne_bot [has_add α] [preorder α]
 [covariant_class α α (+) (<)] [covariant_class α α (swap (+)) (≤)]
 (hb : b ≠ ⊥) (hab : a ≤ b) (hcd : c < d) : a + c < b + d :=
-@with_top.add_lt_add_of_le_of_lt_of_left_ne_bot (order_dual α) _ _ _ _ _ _ _ _ hb hab hcd
+@with_top.add_lt_add_of_le_of_lt_of_left_ne_top (order_dual α) _ _ _ _ _ _ _ _ hb hab hcd
 
 theorem add_lt_add_of_lt_of_le_of_left_ne_bot [has_add α] [preorder α]
 [covariant_class α α (+) (≤)] [covariant_class α α (swap (+)) (<)]
 (hc : c ≠ ⊥) (hab : a < b) (hcd : c ≤ d) : a + c < b + d :=
-@with_top.add_lt_add_of_lt_of_le_of_right_ne_bot (order_dual α) _ _ _ _ _ _ _ _ hc hab hcd
+@with_top.add_lt_add_of_lt_of_le_of_right_ne_top (order_dual α) _ _ _ _ _ _ _ _ hc hab hcd
 
 theorem add_lt_add_of_lt_of_le_of_right_ne_bot [has_add α] [preorder α]
 [covariant_class α α (+) (≤)] [covariant_class α α (swap (+)) (<)]
 (hd : d ≠ ⊥) (hab : a < b) (hcd : c ≤ d) : a + c < b + d :=
-@with_top.add_lt_add_of_lt_of_le_of_left_ne_bot (order_dual α) _ _ _ _ _ _ _ _ hd hab hcd
+@with_top.add_lt_add_of_lt_of_le_of_left_ne_top (order_dual α) _ _ _ _ _ _ _ _ hd hab hcd
 
 end with_bot
